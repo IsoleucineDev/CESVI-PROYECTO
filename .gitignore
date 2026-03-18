@@ -22,3 +22,17 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+
+# FrontEnd (Node/Vite)
+FrontEnd/node_modules/
+node_modules/
+FrontEnd/dist/
+dist/
+FrontEnd/.vite/
+.vite/
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db1
