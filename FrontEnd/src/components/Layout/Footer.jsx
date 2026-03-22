@@ -1,26 +1,12 @@
-import React, { useContext } from 'react'
-import { Layout as AntLayout } from 'antd'
-import ThemeContext from '../../context/ThemContext'
-import Typography from '@mui/material/Typography';
+import React from "react";
 
-const { Footer } = AntLayout
-
-const FooterComponent = () => {
-    const themeContext = useContext(ThemeContext)
-    const { themeGral } = themeContext
-    let today = new Date();
-    let year = today.getFullYear()
-    return (
-        <Footer
-            style={{
-                textAlign: 'center',
-                background: themeGral.footer_color
-            }}
-        >           
-            <Typography variant="h7"  color={themeGral.footer_colorText} >©{year} Creado por CESVI MÉXICO</Typography> 
-
-        </Footer>
-    )
+export default function Footer() {
+  return (
+    <footer
+      className="h-[38px] flex items-center justify-center text-white text-xs shrink-0"
+      style={{ backgroundColor: "#00ADCF" }}
+    >
+      ©2026 Creado por CESVI MÉXICO
+    </footer>
+  );
 }
-
-export default FooterComponent
