@@ -2,7 +2,7 @@ import React from "react";
 import PrivateRoute from "./components/Global/helpers/PrivateRoute";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Spin } from "antd";
-
+import MockupDashboard from "./pages/Mockup/Dashboard";
 import Layout from "./components/Layout/Layout";
 
 // Páginas actuales (no cambiamos pantallas todavía)
@@ -45,7 +45,7 @@ const Router = () => {
             }
           >
             <Route path="/Dashboard" element={<Dashboard />} />
-
+			<Route path="/mockup/dashboard" element={<MockupDashboard />} />
             <Route path="Configuracion/Forms" element={<Forms />} />
             <Route path="Configuracion/Tables" element={<Tables />} />
             <Route path="Configuracion/Catalogos" element={<Catalogos />} />
