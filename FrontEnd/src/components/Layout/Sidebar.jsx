@@ -56,24 +56,32 @@ export default function Sidebar() {
         setOpenSubmenu(null);
       }
     }
+
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   const isActive = (item) => {
     if (item.path) {
+      // HashRouter: evitamos que "/Dashboard" se marque activo con otras rutas por error
+      if (item.path === "/Dashboard") return location.pathname === "/Dashboard";
       return location.pathname.startsWith(item.path);
     }
+
     if (item.children) {
       return item.children.some((c) => location.pathname.startsWith(c.path));
     }
+
     return false;
   };
 
   const handleItemClick = (item) => {
     if (item.children) {
       setOpenSubmenu(openSubmenu === item.id ? null : item.id);
-    } else if (item.path) {
+      return;
+    }
+
+    if (item.path) {
       navigate(item.path);
       setOpenSubmenu(null);
     }
@@ -99,6 +107,7 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-1 p-2 flex-1 relative" ref={submenuRef}>
         {NAV_ITEMS.map((item) => {
           const active = isActive(item);
+
           return (
             <div key={item.id} className="relative">
               <button
