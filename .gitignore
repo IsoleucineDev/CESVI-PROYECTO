@@ -36,3 +36,4 @@ FrontEnd/.vite/
 *.log
 .DS_Store
 Thumbs.db1
+FrontEnd/.env.example
