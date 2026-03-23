@@ -1,44 +1,33 @@
 import React from "react";
+import { Navigate } from "react-router-dom";
 import { useKeycloak } from "@react-keycloak/web";
-import { useNavigate } from "react-router-dom";
-import BackdropMUI from "../BackdropCompont";
+import { env, envBool } from "../../../config/runtimeEnv";
 
-const PrivateRoute = ({ children }) => {
-  const navigate = useNavigate();
-  const { keycloak, initialized } = useKeycloak();
-
-  const disableKeycloak =
-    String(process.env.REACT_APP_DISABLE_KEYCLOAK).toLowerCase() === "true";
+/**
+ * PrivateRoute:
+ * - Si VITE_DISABLE_KEYCLOAK=true => deja pasar siempre (modo DEV).
+ * - Si Keycloak está activo => requiere authenticated.
+ * - Opcionalmente valida roles si se pasan.
+ */
+export default function PrivateRoute({ children, roles = [] }) {
+  const disableKeycloak = envBool("DISABLE_KEYCLOAK", true);
+  const clientId = env("clientId", "");
+  const { keycloak } = useKeycloak();
 
   // DEV sin Keycloak
   if (disableKeycloak) return children;
 
-  const isLoggedIn = keycloak.authenticated;
-
-  if (!initialized) {
-    return <BackdropMUI open={true} />;
+  // Si no hay keycloak aún o no está autenticado
+  if (!keycloak || !keycloak.authenticated) {
+    return <Navigate to="/" replace />;
   }
 
-  if (keycloak.authenticated) {
-    let PerAplication = false;
-
-    if (keycloak.tokenParsed?.access_system) {
-      keycloak.tokenParsed.access_system[0].map((access) => {
-        if (access === process.env.REACT_APP_clientId) {
-          PerAplication = true;
-        }
-      });
-    }
-
-    if (!PerAplication) {
-      keycloak.logout(
-        process.env.REACT_APP_logoutOptions || process.env.REACT_APP_logoutOption
-      );
-      return;
-    }
+  // Validación opcional de roles (si tu app lo usa)
+  if (roles.length > 0 && clientId) {
+    const userRoles = keycloak.resourceAccess?.[clientId]?.roles || [];
+    const allowed = roles.some((r) => userRoles.includes(r));
+    if (!allowed) return <Navigate to="/" replace />;
   }
 
-  return isLoggedIn ? children : navigate("/");
-};
-
-export default PrivateRoute;
+  return children;
+}

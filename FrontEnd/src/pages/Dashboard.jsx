@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { ping } from "../api/ping";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart,
@@ -70,9 +71,18 @@ const ESTADO_BADGE = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [backStatus, setBackStatus] = useState("probando...");
+  useEffect(() => {
+  	ping()
+      .then((data) => setBackStatus(`OK: ${data?.response ?? JSON.stringify(data)}`))
+      .catch((err) => setBackStatus(`ERROR: ${err?.message ?? String(err)}`));
+  }, []);
 
   return (
     <div className="p-4 flex flex-col gap-4">
+    <div className="text-xs text-gray-600">
+  		Backend: <span className="font-mono">{backStatus}</span>
+	</div>  
       <div className="grid grid-cols-4 gap-4">
         {KPI_CARDS.map((card) => (
           <div key={card.label} className="bg-white border border-gray-200 rounded shadow-sm p-4 flex items-center gap-3">
