@@ -32,6 +32,13 @@ $router->get('/web', function () use ($router) {
  });
 
 
+// REPORTE DEL PERITO (JWT)
+$router->group(['prefix' => 'ReportePerito', 'middleware' => 'jwt'], function () use ($router) {
+    // Ejemplo: GET http://127.0.0.1:8000/ReportePerito/12
+    $router->get('{id}', ['uses' => 'ReportePeritoController@show']);
+});
+
+
 $router->get('/test', function () {
     return "¡La API está viva!";
 });
