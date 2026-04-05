@@ -1,4 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
 /node_modules
@@ -24,16 +23,38 @@ yarn-debug.log*
 yarn-error.log*
 
 
-# FrontEnd (Node/Vite)
-FrontEnd/node_modules/
-node_modules/
-FrontEnd/dist/
-dist/
-FrontEnd/.vite/
-.vite/
-
 # Logs / OS
 *.log
 .DS_Store
 Thumbs.db1
 FrontEnd/.env.example
+
+# Backend
+BackEnd/web/vendor/
+BackEnd/web/.env
+BackEnd/web/.env.local
+BackEnd/web/storage/
+BackEnd/web/bootstrap/cache/
+BackEnd/web/logs/
+
+# Frontend
+FrontEnd/node_modules/
+FrontEnd/dist/
+FrontEnd/.env.local
+FrontEnd/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Archivos temporales
+*.zip
+*.rar
+tree_proyecto_actual.txt
