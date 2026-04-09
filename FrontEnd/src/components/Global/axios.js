@@ -1,20 +1,14 @@
 import axios from "axios";
+import { env } from "../../config/runtimeEnv";
 
-const clienteAxios = axios.create({
-  baseURL: process.env.REACT_APP_BASE_URL,
+const baseURL = env("BASE_URL", "http://localhost:8000/");
+
+const instance = axios.create({
+  baseURL,
   headers: {
-    "X-Requested-With": "XMLHttpRequest",
-    // ❌ NO pongas Content-Type aquí
+    Accept: "application/json",
+    "Content-Type": "application/json",
   },
 });
 
-// ✅ Si mandas FormData, deja que axios ponga el boundary
-clienteAxios.interceptors.request.use((config) => {
-  if (config.data instanceof FormData) {
-    delete config.headers["Content-Type"];
-    delete config.headers["content-type"];
-  }
-  return config;
-});
-
-export default clienteAxios;
+export default instance;

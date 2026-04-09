@@ -1,8 +1,10 @@
 import Keycloak from "keycloak-js";
+import { env } from "../../config/runtimeEnv";
+
 const keycloak = new Keycloak({
-        url: process.env.REACT_APP_clientuRL,
-    realm: "Cesvi",
-    clientId: process.env.REACT_APP_clientId,    
+  url: env("clientuRL", ""),
+  realm: env("realm", ""),
+  clientId: env("clientId", ""),
 });
 
 export default keycloak;

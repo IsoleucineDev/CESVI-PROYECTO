@@ -1,5 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import "./css/tailwind.css";
 import "antd/dist/reset.css";
 import { notification, ConfigProvider } from "antd";
 import Router from "./Router.jsx";
