@@ -6,18 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class CatEntorno extends Model
 {
-    protected $table = 'cat_entorno';
+    protected $table = 'cat_entornos';
+    
     protected $fillable = [
         'clima',
         'tipo_via',
         'superficie',
         'iluminacion',
-        'visibilidad'
+        'visibilidad',
+        'observaciones'
     ];
-    public $timestamps = true;
-
-    public function siniestros()
-    {
-        return $this->hasMany(Siniestro::class);
-    }
 }
