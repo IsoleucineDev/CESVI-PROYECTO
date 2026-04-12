@@ -1,23 +1,22 @@
-import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutGrid, User } from "lucide-react";
+import { useLocation, useNavigate } from "react-router";
+import { LayoutGrid, User, ChevronRight } from "lucide-react";
+import { useState } from "react";
 
-const PAGE_TITLES = {
+const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
-  "/Dashboard": "Dashboard",
   "/expedientes": "Expedientes RAT",
   "/expedientes/nuevo": "Nuevo Expediente",
   "/configuracion/catalogos": "Configuración / Catálogos",
   "/perfil": "Mi Perfil",
 };
 
-function getTitle(pathname) {
+function getTitle(pathname: string): string {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
   if (pathname.startsWith("/expedientes/")) return "Detalle de Expediente";
   return "Dashboard";
 }
 
-export default function Topbar() {
+export function Topbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -32,7 +31,10 @@ export default function Topbar() {
       <span className="text-base font-medium tracking-wide">{title}</span>
 
       <div className="flex items-center gap-3">
-        <button className="p-1.5 rounded hover:bg-white/20 transition-colors" title="Aplicaciones">
+        <button
+          className="p-1.5 rounded hover:bg-white/20 transition-colors"
+          title="Aplicaciones"
+        >
           <LayoutGrid size={20} />
         </button>
 
@@ -46,7 +48,10 @@ export default function Topbar() {
 
           {showUserMenu && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowUserMenu(false)}
+              />
               <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded shadow-lg z-50 w-48">
                 <div className="px-3 py-2 border-b border-gray-100">
                   <p className="text-xs font-medium text-gray-800">Ing. Carlos Méndez</p>
@@ -54,19 +59,13 @@ export default function Topbar() {
                 </div>
                 <button
                   className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                  onClick={() => {
-                    navigate("/perfil");
-                    setShowUserMenu(false);
-                  }}
+                  onClick={() => { navigate("/perfil"); setShowUserMenu(false); }}
                 >
                   Mi Perfil
                 </button>
                 <button
                   className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                  onClick={() => {
-                    navigate("/login");
-                    setShowUserMenu(false);
-                  }}
+                  onClick={() => { navigate("/login"); setShowUserMenu(false); }}
                 >
                   Cerrar Sesión
                 </button>

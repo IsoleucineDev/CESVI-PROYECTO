@@ -5,24 +5,27 @@ import { env, envBool } from "../../../config/runtimeEnv";
 
 /**
  * PrivateRoute:
- * - Si VITE_DISABLE_KEYCLOAK=true => deja pasar siempre (modo DEV).
- * - Si Keycloak está activo => requiere authenticated.
- * - Opcionalmente valida roles si se pasan.
+ * - Si DISABLE_KEYCLOAK=true => deja pasar (modo prueba)
+ * - Si Keycloak activo => requiere authenticated
+ * - Opcionalmente valida roles
  */
 export default function PrivateRoute({ children, roles = [] }) {
   const disableKeycloak = envBool("DISABLE_KEYCLOAK", true);
   const clientId = env("clientId", "");
-  const { keycloak } = useKeycloak();
+  const { keycloak, initialized } = useKeycloak();
 
-  // DEV sin Keycloak
+  // Modo prueba: NO bloquear
   if (disableKeycloak) return children;
 
-  // Si no hay keycloak aún o no está autenticado
-  if (!keycloak || !keycloak.authenticated) {
-    return <Navigate to="/" replace />;
+  // Esperar Keycloak
+  if (!initialized) return null;
+
+  // Si no autenticado, ir a login
+  if (!keycloak?.authenticated) {
+    return <Navigate to="/login" replace />;
   }
 
-  // Validación opcional de roles (si tu app lo usa)
+  // Validación opcional de roles
   if (roles.length > 0 && clientId) {
     const userRoles = keycloak.resourceAccess?.[clientId]?.roles || [];
     const allowed = roles.some((r) => userRoles.includes(r));

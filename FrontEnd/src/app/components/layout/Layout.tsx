@@ -1,10 +1,9 @@
-import React from "react";
-import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
-import Topbar from "./Topbar";
-import Footer from "./Footer";
+import { Outlet } from "react-router";
+import { Sidebar } from "./Sidebar";
+import { Topbar } from "./Topbar";
+import { Footer } from "./Footer";
 
-export default function Layout() {
+export function Layout() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
       <Sidebar />

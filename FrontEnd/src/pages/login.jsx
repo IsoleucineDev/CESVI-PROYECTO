@@ -5,27 +5,28 @@ import { env, envBool } from "../config/runtimeEnv";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { keycloak } = useKeycloak();
+  const { keycloak, initialized } = useKeycloak();
 
   useEffect(() => {
     const disableKeycloak = envBool("DISABLE_KEYCLOAK", true);
 
-    // DEV sin Keycloak: entra directo al Dashboard
+    // Modo prueba: NO activar keycloak, entrar al dashboard como antes
     if (disableKeycloak) {
       navigate("/Dashboard", { replace: true });
       return;
     }
 
-    // Normal: si no está autenticado, manda a login
+    // Keycloak habilitado (producción / flujo real)
+    if (!initialized) return;
+
     if (!keycloak?.authenticated) {
       const option = env("logoutOption", env("logoutOptions", ""));
       keycloak?.login(option ? { redirectUri: option } : undefined);
       return;
     }
 
-    // Ya autenticado
     navigate("/Dashboard", { replace: true });
-  }, [keycloak, navigate]);
+  }, [initialized, keycloak, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
