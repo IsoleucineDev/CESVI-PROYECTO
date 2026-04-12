@@ -4,33 +4,43 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Exception;
-use Illuminate\Http\Request;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
 class Authorization
 {
-    public function handle(Request $request, Closure $next)
+    public function handle($request, Closure $next)
     {
-        $token = $request->bearerToken();
-
-        if (!$token) {
-            return response()->json([
-                'message' => 'Token no proporcionado'
-            ], 401);
-        }
-
         try {
-            $secret = env('JWT_SECRET', 'your-secret-key');
+            // 1. Obtener el token
+            $authHeader = $request->header('Authorization');
+            $token = null;
+
+            if ($authHeader && preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+                $token = $matches[1];
+            }
+
+            if (!$token) {
+                return response()->json(['message' => 'Token no proporcionado'], 401);
+            }
+
+            // 2. Validar el secreto
+            $secret = env('JWT_SECRET');
+            if (!$secret) {
+                return response()->json(['message' => 'JWT_SECRET no configurado en .env'], 500);
+            }
+
+            // 3. Decodificar
             $decoded = JWT::decode($token, new Key($secret, 'HS256'));
-            
-            // Guardar el usuario decodificado en la request
-            $request->attributes->add(['auth_user' => $decoded]);
-            
+
+            // 4. Guardar el usuario 
+            $request->attributes->add(['user' => $decoded]);
             return $next($request);
+
         } catch (Exception $e) {
             return response()->json([
-                'message' => 'Token inválido: ' . $e->getMessage()
+                'error' => 'Error de autenticación',
+                'detalle' => $e->getMessage()
             ], 401);
         }
     }

@@ -25,6 +25,8 @@ $app = new Laravel\Lumen\Application(
 
 $app->withFacades();
 
+error_reporting(E_ALL);
+
 $app->withEloquent();
 
 /*
@@ -133,7 +135,7 @@ $app->router->group([
     'namespace' => 'App\Http\Controllers',
 ], function ($router) {
     require __DIR__ . '/../routes/web.php';
-    require __DIR__ . '/../routes/fritter.php';
+    //require __DIR__ . '/../routes/fritter.php';
 });
 
 return $app;

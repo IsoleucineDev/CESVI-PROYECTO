@@ -50,6 +50,14 @@ $router->group(['prefix' => 'v1/rat'], function () use ($router) {
     $router->delete('/catalogos/entorno/{id}', 'CatalogoController@destroy');
 });
 
+// Ruta para obtener el token (Login)
+$router->post('/login', 'LoginController@login');
+
+// Ruta para probar que el middleware funciona
+$router->group(['middleware' => 'jwt'], function () use ($router) {
+    $router->get('/me', 'LoginController@me');
+});
+
 $router->get('/test', function () {
     return "¡La API está viva!";
 });
