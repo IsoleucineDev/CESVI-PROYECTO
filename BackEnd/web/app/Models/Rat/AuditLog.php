@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Rat\Incidente; 
 namespace App\Models\Rat;
 
 use Illuminate\Database\Eloquent\Model;
