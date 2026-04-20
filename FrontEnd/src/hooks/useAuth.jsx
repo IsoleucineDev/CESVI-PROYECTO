@@ -103,6 +103,7 @@ export function AuthProvider({ children }) {
       error,
       booting,
       isAuthenticated: Boolean(token),
+//      import.meta.env.VITE_BYPASS_AUTH === "true" ? true : Boolean(token),
       login,
       logout,
       setUser,
