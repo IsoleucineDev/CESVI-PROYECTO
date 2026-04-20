@@ -1,7 +1,19 @@
 import React from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Spin } from "antd";
+
+import PrivateRoute from "./components/Global/helpers/PrivateRoute";
 import Layout from "./components/Layout/Layout";
+
 import Login from "./pages/login";
+import Page404 from "./pages/Page404";
+import Page403 from "./pages/Page403";
+
+import Users from "./pages/Users/Home";
+import Forms from "./pages/Configuracion/Forms/Home";
+import Tables from "./pages/Configuracion/Tables/Home";
+import CatalogosLegacy from "./components/Catalogos/Home";
+import VerificacionUsuario from "./pages/VerificacionUsuario/VerificacionUsuario";
 
 import Dashboard from "./app/pages/Dashboard.jsx";
 import Expedientes from "./app/pages/Expedientes.jsx";
@@ -10,29 +22,40 @@ import DetalleExpediente from "./app/pages/DetalleExpediente.jsx";
 import Catalogos from "./app/pages/Catalogos.jsx";
 import Perfil from "./app/pages/Perfil.jsx";
 
-export default function Router() {
+const loading = () => (
+  <div className="animated fadeIn pt-1 text-center">
+    <Spin /> Cargando...
+  </div>
+);
+
+const Router = () => {
   return (
     <HashRouter>
-      <Routes>
-        {/* Redirección inicial */}
-        <Route path="/" element={<Navigate to="/Dashboard" replace />} />
+      <React.Suspense fallback={loading()}>
+        <Routes>
+          <Route path="/" element={<Layout><Login /></Layout>} />
+          <Route path="/login" element={<Layout><Login /></Layout>} />
 
-        {/* Login fuera de layout */}
-        <Route path="/login" element={<Login />} />
+          <Route path="/Dashboard" element={<PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>} />
+          <Route path="/expedientes" element={<PrivateRoute><Layout><Expedientes /></Layout></PrivateRoute>} />
+          <Route path="/expedientes/nuevo" element={<PrivateRoute><Layout><NuevoCaso /></Layout></PrivateRoute>} />
+          <Route path="/expedientes/:id" element={<PrivateRoute><Layout><DetalleExpediente /></Layout></PrivateRoute>} />
+          <Route path="/configuracion/catalogos" element={<PrivateRoute><Layout><Catalogos /></Layout></PrivateRoute>} />
+          <Route path="/perfil" element={<PrivateRoute><Layout><Perfil /></Layout></PrivateRoute>} />
 
-        {/* Rutas con layout */}
-        <Route element={<Layout />}>
-          <Route path="/Dashboard" element={<Dashboard />} />
-          <Route path="/expedientes" element={<Expedientes />} />
-          <Route path="/expedientes/nuevo" element={<NuevoCaso />} />
-          <Route path="/expedientes/:id" element={<DetalleExpediente />} />
-          <Route path="/configuracion/catalogos" element={<Catalogos />} />
-          <Route path="/perfil" element={<Perfil />} />
-        </Route>
+          <Route path="/Configuracion/Forms" element={<PrivateRoute><Layout><Forms /></Layout></PrivateRoute>} />
+          <Route path="/Configuracion/Tables" element={<PrivateRoute><Layout><Tables /></Layout></PrivateRoute>} />
+          <Route path="/Configuracion/Catalogos" element={<PrivateRoute><Layout><CatalogosLegacy /></Layout></PrivateRoute>} />
+          <Route path="/Configuracion/Users" element={<PrivateRoute><Layout><Users /></Layout></PrivateRoute>} />
+          <Route path="/VerificacionUsuario" element={<PrivateRoute><Layout><VerificacionUsuario /></Layout></PrivateRoute>} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/Dashboard" replace />} />
-      </Routes>
+          <Route path="/Page403" element={<PrivateRoute><Page403 /></PrivateRoute>} />
+          <Route path="/Page404" element={<PrivateRoute><Layout><Page404 /></Layout></PrivateRoute>} />
+          <Route path="*" element={<Navigate to="/Dashboard" replace />} />
+        </Routes>
+      </React.Suspense>
     </HashRouter>
   );
-}
+};
+
+export default Router;
