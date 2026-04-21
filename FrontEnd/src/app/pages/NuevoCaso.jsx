@@ -513,18 +513,20 @@ function StepDeformacion() {
       </div>
 
       <div className="col-span-1 flex flex-col gap-3">
-        <div className="text-xs text-gray-600 border-b border-gray-200 pb-1">Variables adicionales</div>
+        <div className="text-xs text-gray-600 border-b border-gray-200 pb-3.5">Variables adicionales</div>
         <Field label="Ancho de contacto L (mm)" req>
           <input type="number" className={inp} placeholder="mm" />
         </Field>
         <Field label="Ángulo FPI (°)">
           <input type="number" className={inp} placeholder="0.0" />
         </Field>
+{/*
         <Field label="Arqueamiento (mm)">
           <input type="number" className={inp} placeholder="0.0" />
         </Field>
+*/}
 
-        <div className="bg-[#E0F7FA] border border-[#00ADCF]/30 rounded p-2 mt-2">
+        <div className="bg-[#E0F7FA] border border-[#00ADCF]/30 rounded p-1 mt-1">
           <div className="text-xs text-gray-600 mb-1">Dmed calculado:</div>
           <div className="text-sm font-semibold text-[#00ADCF]">—</div>
           <div className="text-xs text-gray-400">Promedio de C1–C{campos}</div>
@@ -569,8 +571,9 @@ function StepCalculo() {
             ))}
         </div>
       </div>
-
+      
       <div>
+{/*
         <div className="text-xs text-gray-600 border-b border-gray-200 pb-1 mb-3 flex items-center gap-2">
           Resultados calculados
           <span className="text-xs bg-green-100 text-green-700 px-1.5 rounded">Automático</span>
@@ -587,29 +590,33 @@ function StepCalculo() {
               </div>
             ))}
         </div>
+*/}
+        
 
-        <div className="mt-4 p-3 border rounded" style={{ borderColor: "#00ADCF", backgroundColor: "#E0F7FA" }}>
+        <div className="mt-8 p-3 border rounded" style={{ borderColor: "#00ADCF", backgroundColor: "#E0F7FA" }}>
           <div className="text-xs text-gray-600 mb-1">Diagnóstico de velocidad</div>
           <div className="flex items-center gap-2">
-            <span className="text-red-600 font-semibold text-sm">EXCESO DETECTADO</span>
-            <span className="text-xs text-red-500">+7.1 km/h sobre límite</span>
+            <span className="text-red-600 font-bold text-sm">EXCESO DETECTADO</span>
+            <span className="text-sm text-red-500 font-semibold">+7.1 km/h sobre límite</span>
           </div>
+
           <div className="mt-2 text-xs text-gray-500">
             Consistente con método Limpert (84.3 km/h). Δv = 75.1 km/h indica colisión de alta energía.
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-4 p-0">
           <div className="text-xs text-gray-600 mb-2">Trazabilidad del cálculo</div>
-          <div className="bg-gray-800 text-green-400 text-xs p-3 rounded font-mono leading-5">
+          <div className="bg-gray-100 text-gray-700 border border-gray-200 text-xs p-3 rounded font-sans leading-5">
             <div>1. Ed = A·Dmed + B·Dmed² → 48.72 kJ</div>
             <div>2. Ecorr = Ed·cos(FPI) → 46.30 kJ</div>
             <div>3. EBS = √(2·Ecorr/masa) → 53.6 km/h</div>
             <div>4. Vi = f(EBS, masa, restitución) → 76.4 km/h</div>
             <div>5. Vpre = Vi + v_frenado → 87.1 km/h</div>
-            <div>6. Exceso = 87.1 - 80.0 → +7.1 km/h ⚠</div>
+            <div>6. Exceso = 87.1 - 80.0 → +7.1 km/h </div>
           </div>
         </div>
+
       </div>
     </div>
   );

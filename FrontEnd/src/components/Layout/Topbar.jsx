@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { LayoutGrid, User } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const PAGE_TITLES = {
   "/": "Dashboard",
@@ -20,15 +21,15 @@ function getTitle(pathname) {
 export default function Topbar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const title = getTitle(location.pathname);
+  const fullName = useMemo(() => user?.name || user?.email || "Usuario CESVI", [user]);
+  const role = useMemo(() => user?.role || "Sesión JWT", [user]);
 
   return (
-    <header
-      className="h-[52px] flex items-center justify-between px-4 text-white shrink-0 relative z-30"
-      style={{ backgroundColor: "#00ADCF" }}
-    >
+    <header className="h-[52px] flex items-center justify-between px-4 text-white shrink-0 relative z-30" style={{ backgroundColor: "#00ADCF" }}>
       <span className="text-base font-medium tracking-wide">{title}</span>
 
       <div className="flex items-center gap-3">
@@ -47,10 +48,10 @@ export default function Topbar() {
           {showUserMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-              <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded shadow-lg z-50 w-48">
+              <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded shadow-lg z-50 w-56">
                 <div className="px-3 py-2 border-b border-gray-100">
-                  <p className="text-xs font-medium text-gray-800">Ing. Carlos Méndez</p>
-                  <p className="text-xs text-gray-500">Perito Senior</p>
+                  <p className="text-xs font-medium text-gray-800">{fullName}</p>
+                  <p className="text-xs text-gray-500">{role}</p>
                 </div>
                 <button
                   className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
@@ -64,8 +65,9 @@ export default function Topbar() {
                 <button
                   className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
                   onClick={() => {
-                    navigate("/login");
+                    logout();
                     setShowUserMenu(false);
+                    navigate("/login", { replace: true });
                   }}
                 >
                   Cerrar Sesión
