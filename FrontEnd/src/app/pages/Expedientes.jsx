@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Eye, Trash2, RotateCcw } from "lucide-react";
-import { deleteSiniestro, getSiniestros } from "../../hooks/useSiniestros";
+import { useSiniestros } from "../../hooks/useSiniestros";
 
 const ESTADO_BADGE = {
   captura_inicial: "bg-blue-100 text-blue-700",
@@ -39,58 +39,11 @@ export default function Expedientes() {
     load,
     remove,
   } = useSiniestros();
-  
-  {/*const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [rows, setRows] = useState([]);
-  const [search, setSearch] = useState("");*/}
-
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await getSiniestros();
-      const payload = response?.data?.data || response?.data || [];
-      setRows(Array.isArray(payload) ? payload : []);
-    } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "No se pudieron cargar los expedientes");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((item) => {
-      const values = [
-        item.numero_siniestro,
-        item.tipo_accidente,
-        item.perito_nombre,
-        item.ubicacion_calle,
-        item.ubicacion_ciudad,
-        item.estado,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return values.includes(term);
-    });
-  }, [rows, search]);
 
   async function handleDelete(id) {
-    const confirmed = window.confirm("¿Eliminar este expediente?");
-    if (!confirmed) return;
-
-    try {
-      await deleteSiniestro(id);
-      await load();
-    } catch (err) {
-      alert(err?.response?.data?.message || err?.message || "No se pudo eliminar el expediente");
+    const result = await remove(id);
+    if (!result.ok && result.error) {
+      alert(result.error);
     }
   }
 
