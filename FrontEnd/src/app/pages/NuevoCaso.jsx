@@ -599,6 +599,7 @@ function StepCalculo() {
             <span className="text-red-600 font-bold text-sm">EXCESO DETECTADO</span>
             <span className="text-sm text-red-500 font-semibold">+7.1 km/h sobre límite</span>
           </div>
+
           <div className="mt-2 text-xs text-gray-500">
             Consistente con método Limpert (84.3 km/h). Δv = 75.1 km/h indica colisión de alta energía.
           </div>
