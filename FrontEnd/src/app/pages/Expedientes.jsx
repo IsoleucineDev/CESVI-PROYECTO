@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Eye, Trash2, RotateCcw } from "lucide-react";
-import { deleteSiniestro, getSiniestros } from "../../services/siniestroService";
+import { deleteSiniestro, getSiniestros } from "../../hooks/useSiniestros";
 
 const ESTADO_BADGE = {
   captura_inicial: "bg-blue-100 text-blue-700",
@@ -30,10 +30,20 @@ function formatTime(value) {
 
 export default function Expedientes() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    error,
+    search,
+    setSearch,
+    filteredRows,
+    load,
+    remove,
+  } = useSiniestros();
+  
+  {/*const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState("");*/}
 
   async function load() {
     setLoading(true);

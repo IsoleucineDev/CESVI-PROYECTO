@@ -12,8 +12,8 @@ export function useSiniestros() {
     setError("");
 
     try {
-      const response = await getSiniestros();
-      const payload = response?.data?.data || response?.data || [];
+      const data = await getSiniestros();
+      const payload = data?.data?.data || data?.data || data || [];
       setRows(Array.isArray(payload) ? payload : []);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "No se pudieron cargar los expedientes");
@@ -35,7 +35,6 @@ export function useSiniestros() {
         item.numero_siniestro,
         item.tipo_accidente,
         item.perito_nombre,
-        item.ubicacion_calle,
         item.ubicacion_ciudad,
         item.estado,
       ]
