@@ -4,14 +4,15 @@ import { Search, Plus, Eye, Trash2, RotateCcw } from "lucide-react";
 import { useSiniestros } from "../../hooks/useSiniestros";
 
 const ESTADO_BADGE = {
-  captura_inicial: "bg-blue-100 text-blue-700",
-  en_revision: "bg-yellow-100 text-yellow-700",
-  completado: "bg-green-100 text-green-700",
-  rechazado: "bg-red-100 text-red-700",
-  analisis_danos: "bg-cyan-100 text-cyan-700",
-  dinamica_colision: "bg-indigo-100 text-indigo-700",
-  conclusiones: "bg-purple-100 text-purple-700",
-  reporte_final: "bg-emerald-100 text-emerald-700",
+  0: "bg-blue-100 text-blue-700",
+  1: "bg-yellow-100 text-yellow-700",
+  2: "bg-green-100 text-green-700",
+};
+
+const ESTADO_LABEL = {
+  0: "Abierto",
+  1: "En revisión",
+  2: "Finalizado",
 };
 
 function formatDate(value) {
@@ -21,30 +22,13 @@ function formatDate(value) {
   return date.toLocaleDateString("es-MX");
 }
 
-function formatTime(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-}
-
 export default function Expedientes() {
   const navigate = useNavigate();
-  const {
-    loading,
-    error,
-    search,
-    setSearch,
-    filteredRows,
-    load,
-    remove,
-  } = useSiniestros();
+  const { loading, error, search, setSearch, filteredRows, load, remove } = useSiniestros();
 
-  async function handleDelete(id) {
-    const result = await remove(id);
-    if (!result.ok && result.error) {
-      alert(result.error);
-    }
+  async function handleDelete(uuid) {
+    const result = await remove(uuid);
+    if (!result.ok && result.error) alert(result.error);
   }
 
   return (
@@ -54,7 +38,6 @@ export default function Expedientes() {
           <div className="text-sm text-gray-800">Expedientes RAT</div>
           <div className="text-xs text-gray-500 mt-0.5">Consulta y administra los siniestros registrados</div>
         </div>
-
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -90,41 +73,39 @@ export default function Expedientes() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left text-xs text-gray-500 px-4 py-2">Expediente</th>
                   <th className="text-left text-xs text-gray-500 px-3 py-2">Fecha</th>
-                  <th className="text-left text-xs text-gray-500 px-3 py-2">Hora</th>
-                  <th className="text-left text-xs text-gray-500 px-3 py-2">Tipo</th>
+                  <th className="text-left text-xs text-gray-500 px-3 py-2">Tipo de Hecho</th>
                   <th className="text-left text-xs text-gray-500 px-3 py-2">Perito</th>
-                  <th className="text-left text-xs text-gray-500 px-3 py-2">Ciudad</th>
+                  <th className="text-left text-xs text-gray-500 px-3 py-2">Vehículo</th>
                   <th className="text-left text-xs text-gray-500 px-3 py-2">Estado</th>
                   <th className="text-left text-xs text-gray-500 px-3 py-2">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={item.uuid} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-2 text-xs text-[#00ADCF] font-medium">
-                      {item.numero_siniestro || `SIN-${item.id}`}
+                      {item.numero_siniestro || item.uuid}
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{formatDate(item.fecha_hora_siniestro)}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{formatTime(item.fecha_hora_siniestro)}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{item.tipo_accidente || "—"}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{item.perito_nombre || "—"}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{item.ubicacion_ciudad || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{formatDate(item.fecha_hecho)}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{item.tipo_hecho || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{item.perito || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{item.vehiculo || "—"}</td>
                     <td className="px-3 py-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${ESTADO_BADGE[item.estado] || "bg-gray-100 text-gray-700"}`}>
-                        {(item.estado || "sin_estado").replaceAll("_", " ")}
+                        {ESTADO_LABEL[item.estado] ?? "—"}
                       </span>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => navigate(`/expedientes/${item.id}`)}
+                          onClick={() => navigate(`/expedientes/${item.uuid}`)}
                           className="text-[#00ADCF] hover:text-[#007A9A]"
                           title="Ver detalle"
                         >
                           <Eye size={15} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item.uuid)}
                           className="text-red-500 hover:text-red-700"
                           title="Eliminar"
                         >
@@ -136,7 +117,7 @@ export default function Expedientes() {
                 ))}
                 {!filteredRows.length && (
                   <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-sm text-gray-500">
+                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-gray-500">
                       No se encontraron expedientes.
                     </td>
                   </tr>

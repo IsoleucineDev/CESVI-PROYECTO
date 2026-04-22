@@ -20,44 +20,49 @@ export function Login() {
   const [showPass, setShowPass] = useState(false);
 
   const { login, loading, error, isAuthenticated } = useAuth();
-  const navigate      = useNavigate();
-  const location      = useLocation();
-  const [params]      = useSearchParams();
+  const navigate       = useNavigate();
+  const location       = useLocation();
+  const [params]       = useSearchParams();
   const sessionExpired = params.get("expired") === "1";
 
-  // Si ya está autenticado, manda al dashboard de inmediato
+  // Si ya está autenticado redirige de inmediato
   if (isAuthenticated) {
-    const destino = (location.state as any)?.from?.pathname || "/Dashboard";
+    const destino = location.state?.from?.pathname || "/";
     navigate(destino, { replace: true });
     return null;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) return;
 
     const result = await login({ email, password });
 
     if (result.ok) {
-      // Redirige a la página que intentaba visitar antes del login
-      const destino = (location.state as any)?.from?.pathname || "/Dashboard";
+      const destino = location.state?.from?.pathname || "/";
       navigate(destino, { replace: true });
     }
-    // Si !result.ok el error ya queda en el contexto y se muestra abajo
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
+
       {/* Header */}
-      <div className="fixed top-0 left-0 right-0 h-[52px] flex items-center px-6" style={{ backgroundColor: "#00ADCF" }}>
+      <div
+        className="fixed top-0 left-0 right-0 h-[52px] flex items-center px-6"
+        style={{ backgroundColor: "#00ADCF" }}
+      >
         <div className="flex items-center gap-3">
           <CesviLogo />
-          <span className="text-white text-base font-medium tracking-wide">Sistema RAT – CESVI México</span>
+          <span className="text-white text-base font-medium tracking-wide">
+            Sistema RAT – CESVI México
+          </span>
         </div>
       </div>
 
       <div className="mt-[52px] w-full max-w-sm">
         <div className="bg-white border border-gray-200 rounded shadow-md">
+
           <div className="border-b border-gray-200 px-6 py-4 flex flex-col items-center gap-2">
             <CesviLogo />
             <p className="text-sm text-gray-500 text-center">Sistema RAT – CESVI México</p>
@@ -69,7 +74,7 @@ export function Login() {
               <p className="text-xs text-gray-500 mt-0.5">Ingresa tus credenciales institucionales</p>
             </div>
 
-            {/* Aviso de sesión expirada */}
+            {/* Sesión expirada */}
             {sessionExpired && !error && (
               <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-xs text-yellow-800">
                 <AlertCircle size={14} />
@@ -85,6 +90,7 @@ export function Login() {
               </div>
             )}
 
+            {/* Email */}
             <div>
               <label className="block text-xs text-gray-600 mb-1">
                 Correo electrónico <span className="text-red-500">*</span>
@@ -105,6 +111,7 @@ export function Login() {
               </div>
             </div>
 
+            {/* Password */}
             <div>
               <label className="block text-xs text-gray-600 mb-1">
                 Contraseña <span className="text-red-500">*</span>
@@ -155,7 +162,11 @@ export function Login() {
         </p>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 h-[38px] flex items-center justify-center text-white text-xs" style={{ backgroundColor: "#00ADCF" }}>
+      {/* Footer */}
+      <div
+        className="fixed bottom-0 left-0 right-0 h-[38px] flex items-center justify-center text-white text-xs"
+        style={{ backgroundColor: "#00ADCF" }}
+      >
         ©2026 Creado por CESVI MÉXICO
       </div>
     </div>
