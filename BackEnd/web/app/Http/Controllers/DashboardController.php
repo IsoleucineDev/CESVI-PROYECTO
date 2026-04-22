@@ -22,67 +22,58 @@ class DashboardController extends Controller
     public function index(): JsonResponse
     {
         // ── Contadores por estado ─────────────────────────────────────────────
-        $contadores = DB::table('RAT_INCIDENTE')
+        $contadores = DB::table('siniestros')
             ->selectRaw("
-                SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) AS casos_abiertos,
-                SUM(CASE WHEN estado = 1 THEN 1 ELSE 0 END) AS en_revision,
-                SUM(CASE WHEN estado = 2 THEN 1 ELSE 0 END) AS finalizados
+                SUM(CASE WHEN estado = 'captura_inicial' THEN 1 ELSE 0 END) AS casos_abiertos,
+                SUM(CASE WHEN estado = 'en_revision' THEN 1 ELSE 0 END) AS en_revision,
+                SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) AS finalizados
             ")
             ->first();
 
-        // Excesos de velocidad confirmados
-        $excesos = DB::table('RAT_CALCULO_VELOCIDAD')
-            ->where('exceso_velocidad', 1)
-            ->count();
+        // Excesos de velocidad confirmados (mocked to 0 for now as it requires calculation)
+        $excesos = 0;
 
         // ── Expedientes por mes (últimos 6 meses) ─────────────────────────────
-        $expedientesPorMes = DB::table('RAT_INCIDENTE')
-            ->selectRaw("DATE_FORMAT(fecha_hecho, '%Y-%m') AS mes, COUNT(*) AS total")
-            ->where('fecha_hecho', '>=', \Carbon\Carbon::now()->subMonths(6)->startOfMonth())
-            ->groupByRaw("DATE_FORMAT(fecha_hecho, '%Y-%m')")
+        $expedientesPorMes = DB::table('siniestros')
+            ->selectRaw("DATE_FORMAT(fecha_hora_siniestro, '%Y-%m') AS mes, COUNT(*) AS total")
+            ->where('fecha_hora_siniestro', '>=', \Carbon\Carbon::now()->subMonths(6)->startOfMonth())
+            ->groupByRaw("DATE_FORMAT(fecha_hora_siniestro, '%Y-%m')")
             ->orderBy('mes')
             ->get();
 
         // ── Distribución por tipo de hecho ────────────────────────────────────
-        $porTipoHecho = DB::table('RAT_INCIDENTE AS i')
-            ->join('RAT_CAT_TIPO_HECHO AS t', 'i.tipo_hecho_id', '=', 't.id')
-            ->selectRaw('t.nombre, COUNT(*) AS total')
-            ->groupBy('t.nombre')
+        $porTipoHecho = DB::table('siniestros')
+            ->selectRaw('tipo_accidente AS nombre, COUNT(*) AS total')
+            ->groupBy('tipo_accidente')
             ->orderByDesc('total')
             ->get();
 
         // ── Expedientes recientes (últimos 5) ─────────────────────────────────
-        $recientes = DB::table('RAT_INCIDENTE AS i')
-            ->join('RAT_CAT_TIPO_HECHO AS th', 'i.tipo_hecho_id', '=', 'th.id')
-            ->leftJoin('RAT_INCIDENTE_VEHICULO AS iv', 'iv.incidente_id', '=', 'i.id')
-            ->leftJoin('RAT_VEHICULO AS v', 'iv.vehiculo_id', '=', 'v.id')
-            ->leftJoin('RAT_CALCULO_VELOCIDAD AS cv', 'cv.incidente_vehiculo_id', '=', 'iv.id')
+        $recientes = DB::table('siniestros')
             ->select(
-                'i.uuid',
-                'i.numero_siniestro',
-                'i.fecha_hecho',
-                'i.hora_hecho',
-                'i.estado',
-                'th.nombre AS tipo_hecho',
-                DB::raw("CONCAT(v.marca, ' ', v.submarca, ' ', v.anio_modelo) AS vehiculo"),
-                'cv.velocidad_final_kmh',
-                'cv.exceso_velocidad'
+                'id AS uuid',
+                'numero_siniestro',
+                DB::raw('DATE(fecha_hora_siniestro) as fecha_hecho'),
+                DB::raw('TIME(fecha_hora_siniestro) as hora_hecho'),
+                'estado',
+                'tipo_accidente AS tipo_hecho',
+                DB::raw("'Pendiente' AS vehiculo"),
+                DB::raw("NULL AS velocidad_final_kmh"),
+                DB::raw("0 AS exceso_velocidad")
             )
-            ->orderByDesc('i.created_at')
+            ->orderByDesc('created_at')
             ->limit(5)
             ->get();
 
         // ── Resumen del mes actual ─────────────────────────────────────────────
         $inicioMes = \Carbon\Carbon::now()->startOfMonth();
-        $resumenMes = DB::table('RAT_INCIDENTE AS i')
-            ->leftJoin('RAT_INCIDENTE_VEHICULO AS iv', 'iv.incidente_id', '=', 'i.id')
-            ->leftJoin('RAT_CALCULO_VELOCIDAD AS cv', 'cv.incidente_vehiculo_id', '=', 'iv.id')
-            ->where('i.created_at', '>=', $inicioMes)
+        $resumenMes = DB::table('siniestros')
+            ->where('created_at', '>=', $inicioMes)
             ->selectRaw("
-                COUNT(DISTINCT i.id)                                          AS nuevos_casos,
-                SUM(CASE WHEN i.estado = 2 THEN 1 ELSE 0 END)                AS cerrados,
-                SUM(CASE WHEN cv.exceso_velocidad = 1 THEN 1 ELSE 0 END)     AS con_exceso_velocidad,
-                SUM(CASE WHEN i.estado = 1 THEN 1 ELSE 0 END)                AS pendiente_revision
+                COUNT(id) AS nuevos_casos,
+                SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) AS cerrados,
+                0 AS con_exceso_velocidad,
+                SUM(CASE WHEN estado = 'en_revision' THEN 1 ELSE 0 END) AS pendiente_revision
             ")
             ->first();
 
