@@ -36,13 +36,10 @@ if (bootAuth?.token) {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401) {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      setAuthToken(null);
-      if (window.location.hash !== "#/login") {
-        window.location.hash = "#/login";
+      if (error?.response?.status === 401) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setAuthToken(null);
       }
-    }
     return Promise.reject(error);
   }
 );

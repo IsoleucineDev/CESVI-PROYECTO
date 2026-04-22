@@ -2,7 +2,7 @@ import axios from "axios";
 
 const STORAGE_KEY = "cesvi_auth";
 const BASE_URL    = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const API_PREFIX  = "/api/v1/rat";
+const API_PREFIX  = "/v1/rat";
 
 export const apiClient = axios.create({
   baseURL: `${BASE_URL}${API_PREFIX}`,
@@ -34,10 +34,9 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
 
     if (status === 401) {
-      // Token inválido o expirado → limpia sesión y manda al login
+      // Token inválido o expirado → limpia sesión
       localStorage.removeItem(STORAGE_KEY);
-      window.location.href = "/#/login?expired=1";
-      return Promise.reject(new Error("Sesión expirada. Por favor inicia sesión nuevamente."));
+      return Promise.reject(new Error("Sesión expirada o no autorizada."));
     }
 
     if (status === 403) {

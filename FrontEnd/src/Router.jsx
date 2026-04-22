@@ -1,8 +1,6 @@
 import React from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout/Layout";
-import Login from "./pages/login";
-import ProtectedRoute from "./components/ProtectedRoute";
 
 import Dashboard from "./app/pages/Dashboard.jsx";
 import Expedientes from "./app/pages/Expedientes.jsx";
@@ -16,9 +14,6 @@ export default function Router() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/Dashboard" replace />} />
-        <Route path="/login" element={<Login />} />
-
-        <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/Dashboard" element={<Dashboard />} />
             <Route path="/expedientes" element={<Expedientes />} />
@@ -27,7 +22,6 @@ export default function Router() {
             <Route path="/configuracion/catalogos" element={<Catalogos />} />
             <Route path="/perfil" element={<Perfil />} />
           </Route>
-        </Route>
 
         <Route path="*" element={<Navigate to="/Dashboard" replace />} />
       </Routes>

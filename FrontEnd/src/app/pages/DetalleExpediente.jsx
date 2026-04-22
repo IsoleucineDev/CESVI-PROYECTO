@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Send, CheckCircle, AlertTriangle, FileText, User, Camera, Ruler, Calculator, BookOpen } from "lucide-react";
+import { ArrowLeft, Download, Send, CheckCircle, AlertTriangle, FileText, User, Camera, Ruler, Calculator, BookOpen, RefreshCw } from "lucide-react";
 import { getSiniestroById } from "../../services/siniestroService";
 
 const TABS = [
@@ -13,11 +13,17 @@ const TABS = [
   { id: "reporte", label: "Reporte", icon: <FileText size={14} /> },
 ];
 
-function Row({ label, val, highlight }) {
+function Row({ label, val, highlight, isStatus }) {
+  const isEnEspera = val === null || val === undefined || val === "En espera";
+  const displayVal = isEnEspera ? "En espera" : val;
   return (
     <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
       <span className="text-xs text-gray-500">{label}</span>
-      <span className={`text-xs font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>{val || "—"}</span>
+      {isEnEspera ? (
+        <span className="text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded text-xs">En espera</span>
+      ) : (
+        <span className={`text-xs font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>{displayVal}</span>
+      )}
     </div>
   );
 }
@@ -50,10 +56,10 @@ function normalizeExp(raw) {
     vin: raw.vin || "No disponible",
     placas: raw.placas || "No disponible",
     color: raw.color || "No disponible",
-    velocidad: raw.velocidad_preimpacto ? `${raw.velocidad_preimpacto} km/h` : "No calculada",
-    limite: raw.limite_velocidad ? `${raw.limite_velocidad} km/h` : "No disponible",
-    exceso: raw.exceso_velocidad ? `${raw.exceso_velocidad} km/h` : "Sin dato",
-    delta: raw.delta_v ? `${raw.delta_v} km/h` : "Sin dato",
+    velocidad: raw.velocidad_preimpacto ? `${raw.velocidad_preimpacto} km/h` : null,
+    limite: raw.limite_velocidad ? `${raw.limite_velocidad} km/h` : null,
+    exceso: raw.exceso_velocidad !== null && raw.exceso_velocidad !== undefined ? `${raw.exceso_velocidad} km/h` : null,
+    delta: raw.delta_v ? `${raw.delta_v} km/h` : null,
     descripcion: raw.descripcion_detallada || "Sin descripción detallada",
     perito_email: raw.perito_email || "—",
     perito_cedula: raw.perito_cedula || "—",
@@ -87,10 +93,10 @@ function TabResumen({ exp }) {
       </div>
       <div>
         <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">Resultados</div>
-        <Row label="Vel. pre-impacto" val={exp.velocidad} />
-        <Row label="Límite permitido" val={exp.limite} />
-        <Row label="Exceso" val={exp.exceso} highlight={exp.exceso !== "Sin dato"} />
-        <Row label="Δv (delta)" val={exp.delta} />
+        <Row label="Vel. pre-impacto" val={exp.velocidad} isStatus />
+        <Row label="Límite permitido" val={exp.limite} isStatus />
+        <Row label="Exceso" val={exp.exceso} highlight={exp.exceso !== null} isStatus />
+        <Row label="Δv (delta)" val={exp.delta} isStatus />
         <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded flex items-center gap-2">
           <AlertTriangle size={14} className="text-red-500" />
           <span className="text-xs text-red-700">La vista conserva UI vieja y muestra datos reales disponibles</span>
@@ -177,15 +183,17 @@ function TabReporte({ exp }) {
         </div>
         <div className="ml-auto flex gap-2">
           <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]">
-            <Download size={13} /> Generar PDF
+            <Download size={13} /> Generar Word
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs" style={{ backgroundColor: "#00ADCF" }}>
             <Send size={13} /> Enviar a revisión
           </button>
         </div>
       </div>
-      <div className="border border-gray-300 rounded bg-white h-80 flex items-center justify-center text-xs text-gray-400">
-        Vista previa del reporte pericial – {exp.id}.pdf
+      <div className="border border-gray-300 rounded bg-white h-80 flex flex-col items-center justify-center text-xs text-gray-400 gap-2">
+        <FileText size={32} className="text-[#00ADCF] mb-2" />
+        Vista previa del dictamen en Word (.docx)
+        <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-200 mt-2">Documento editable habilitado</span>
       </div>
     </div>
   );
@@ -216,12 +224,25 @@ export default function DetalleExpediente() {
         if (active) setLoading(false);
       }
     }
-
-    load();
+    
+    loadData();
     return () => {
       active = false;
     };
   }, [id]);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await getSiniestroById(id);
+      setExpediente(normalizeExp(response?.data || response));
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "No se pudo cargar el expediente");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const content = useMemo(() => {
     if (!expediente) return null;
@@ -271,9 +292,18 @@ export default function DetalleExpediente() {
       </div>
 
       {loading ? (
-        <div className="bg-white border border-gray-200 rounded shadow-sm p-4 text-sm text-gray-600">Cargando expediente...</div>
+        <div className="bg-white border border-gray-200 rounded shadow-sm p-12 flex flex-col items-center justify-center gap-3">
+          <RefreshCw size={24} className="text-[#00ADCF] animate-spin" />
+          <span className="text-gray-500 text-sm">Cargando expediente...</span>
+        </div>
       ) : error ? (
-        <div className="bg-white border border-gray-200 rounded shadow-sm p-4 text-sm text-red-600">{error}</div>
+        <div className="bg-white border border-gray-200 rounded shadow-sm p-8 flex flex-col items-center justify-center gap-3">
+          <AlertTriangle size={32} className="text-red-400" />
+          <span className="text-red-500 text-sm">{error}</span>
+          <button onClick={loadData} className="flex items-center gap-2 px-4 py-2 bg-[#00ADCF] text-white rounded hover:bg-[#0095B3] mt-2 text-sm">
+            <RefreshCw size={16} /> Reintentar
+          </button>
+        </div>
       ) : expediente ? (
         <>
           <div className="bg-white border border-gray-200 rounded shadow-sm p-4 flex items-center justify-between">

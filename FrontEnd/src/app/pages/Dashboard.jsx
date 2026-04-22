@@ -1,60 +1,10 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-import {
-  FileText,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  Plus,
-  Eye,
-  TrendingUp,
-} from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { FileText, Clock, CheckCircle, AlertTriangle, Plus, Eye, TrendingUp, RefreshCw } from "lucide-react";
+import { useDashboard } from "../../hooks/useDashboard";
 
-const KPI_CARDS = [
-  { label: "Casos Abiertos", value: 24, icon: <FileText size={20} />, color: "#00ADCF", bg: "#E0F7FA" },
-  { label: "En Revisión", value: 8, icon: <Clock size={20} />, color: "#F59E0B", bg: "#FEF3C7" },
-  { label: "Finalizados", value: 47, icon: <CheckCircle size={20} />, color: "#10B981", bg: "#D1FAE5" },
-  { label: "Exceso de Velocidad", value: 13, icon: <AlertTriangle size={20} />, color: "#EF4444", bg: "#FEE2E2" },
-];
-
-const EXPEDIENTES_RECIENTES = [
-  { id: "RAT-2026-024", fecha: "08/03/2026", tipo: "Colisión frontal", vehiculo: "Toyota Corolla 2019", perito: "Méndez C.", estado: "Abierto", velocidad: "87 km/h", exceso: true },
-  { id: "RAT-2026-023", fecha: "07/03/2026", tipo: "Volcadura", vehiculo: "Nissan Frontier 2020", perito: "García R.", estado: "En revisión", velocidad: "62 km/h", exceso: false },
-  { id: "RAT-2026-022", fecha: "06/03/2026", tipo: "Colisión lateral", vehiculo: "Chevrolet Aveo 2018", perito: "López M.", estado: "Finalizado", velocidad: "74 km/h", exceso: true },
-  { id: "RAT-2026-021", fecha: "05/03/2026", tipo: "Atropellamiento", vehiculo: "Ford F-150 2021", perito: "Méndez C.", estado: "Finalizado", velocidad: "48 km/h", exceso: false },
-  { id: "RAT-2026-020", fecha: "04/03/2026", tipo: "Colisión trasera", vehiculo: "Honda CR-V 2022", perito: "Torres J.", estado: "En revisión", velocidad: "91 km/h", exceso: true },
-];
-
-const BAR_DATA = [
-  { mes: "Oct", casos: 12 },
-  { mes: "Nov", casos: 18 },
-  { mes: "Dic", casos: 9 },
-  { mes: "Ene", casos: 21 },
-  { mes: "Feb", casos: 16 },
-  { mes: "Mar", casos: 13 },
-];
-
-const PIE_DATA = [
-  { name: "Frontal", value: 38 },
-  { name: "Lateral", value: 24 },
-  { name: "Trasera", value: 19 },
-  { name: "Volcadura", value: 11 },
-  { name: "Atropell.", value: 8 },
-];
-
-const PIE_COLORS = ["#00ADCF", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6"];
+const PIE_COLORS = ["#00ADCF", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6", "#EC4899", "#3B82F6"];
 
 const ACCESOS_RAPIDOS = [
   { label: "Nuevo Expediente", path: "/expedientes/nuevo", icon: <Plus size={18} />, color: "#00ADCF" },
@@ -63,13 +13,58 @@ const ACCESOS_RAPIDOS = [
 ];
 
 const ESTADO_BADGE = {
-  Abierto: "bg-blue-100 text-blue-700",
-  "En revisión": "bg-yellow-100 text-yellow-700",
-  Finalizado: "bg-green-100 text-green-700",
+  captura_inicial: "bg-blue-100 text-blue-700",
+  en_revision: "bg-yellow-100 text-yellow-700",
+  completado: "bg-green-100 text-green-700",
+  rechazado: "bg-red-100 text-red-700",
+  analisis_danos: "bg-cyan-100 text-cyan-700",
+  dinamica_colision: "bg-indigo-100 text-indigo-700",
+  conclusiones: "bg-purple-100 text-purple-700",
+  reporte_final: "bg-emerald-100 text-emerald-700",
 };
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { dashboard, loading, error, load } = useDashboard();
+
+  if (loading) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <RefreshCw size={24} className="text-[#00ADCF] animate-spin" />
+        <span className="text-gray-500 text-sm">Cargando métricas del Dashboard...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <AlertTriangle size={32} className="text-red-400" />
+        <span className="text-red-500 text-sm">{error}</span>
+        <button onClick={load} className="flex items-center gap-2 px-4 py-2 bg-[#00ADCF] text-white rounded hover:bg-[#0095B3]">
+          <RefreshCw size={16} /> Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  const {
+    contadores,
+    expedientes_por_mes,
+    por_tipo_hecho,
+    expedientes_recientes,
+    resumen_mes,
+  } = dashboard || {};
+
+  const KPI_CARDS = [
+    { label: "Casos Abiertos", value: contadores?.casos_abiertos || 0, icon: <FileText size={20} />, color: "#00ADCF", bg: "#E0F7FA" },
+    { label: "En Revisión", value: contadores?.en_revision || 0, icon: <Clock size={20} />, color: "#F59E0B", bg: "#FEF3C7" },
+    { label: "Finalizados", value: contadores?.finalizados || 0, icon: <CheckCircle size={20} />, color: "#10B981", bg: "#D1FAE5" },
+    { label: "Exceso de Velocidad", value: contadores?.exceso_velocidad || 0, icon: <AlertTriangle size={20} />, color: "#EF4444", bg: "#FEE2E2" },
+  ];
+
+  const BAR_DATA = expedientes_por_mes?.map((e) => ({ mes: e.mes, casos: e.total })) || [];
+  const PIE_DATA = por_tipo_hecho?.map((t) => ({ name: t.nombre, value: t.total })) || [];
 
   return (
     <div className="p-4 flex flex-col gap-4">
@@ -137,23 +132,38 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {EXPEDIENTES_RECIENTES.map((exp) => (
-                  <tr key={exp.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/expedientes/${exp.id}`)}>
-                    <td className="px-4 py-2 text-xs text-[#00ADCF] font-medium">{exp.id}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{exp.fecha}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{exp.tipo}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{exp.vehiculo}</td>
-                    <td className="px-3 py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${ESTADO_BADGE[exp.estado] || "bg-gray-100 text-gray-700"}`}>
-                        {exp.estado}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{exp.velocidad}</td>
-                    <td className="px-3 py-2">
-                      {exp.exceso ? <span className="text-xs text-red-600 font-medium">Sí</span> : <span className="text-xs text-gray-400">No</span>}
-                    </td>
+                {expedientes_recientes?.map((exp) => {
+                  const hasSpeed = exp.velocidad_final_kmh !== null && exp.velocidad_final_kmh !== undefined;
+                  const estadoStr = (exp.estado || "sin_estado").replaceAll("_", " ");
+                  return (
+                    <tr key={exp.uuid} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/expedientes/${exp.uuid}`)}>
+                      <td className="px-4 py-2 text-xs text-[#00ADCF] font-medium">{exp.numero_siniestro || `SIN-${exp.uuid?.substring(0,6)}`}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600">{exp.fecha_hecho ? new Date(exp.fecha_hecho).toLocaleDateString("es-MX") : "—"}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600">{exp.tipo_hecho || "—"}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600">{exp.vehiculo || "—"}</td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${ESTADO_BADGE[exp.estado] || "bg-gray-100 text-gray-700"}`}>
+                          {estadoStr}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {hasSpeed ? <span className="text-gray-600">{exp.velocidad_final_kmh} km/h</span> : <span className="text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">En espera</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        {hasSpeed ? (
+                          exp.exceso_velocidad ? <span className="text-xs text-red-600 font-medium">Sí</span> : <span className="text-xs text-gray-400">No</span>
+                        ) : (
+                          <span className="text-xs text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">En espera</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {(!expedientes_recientes || expedientes_recientes.length === 0) && (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center text-xs text-gray-500">No hay expedientes recientes.</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -180,10 +190,10 @@ export default function Dashboard() {
             <div className="text-sm text-gray-700 mb-2 border-b border-gray-100 pb-2">Resumen del mes</div>
             <div className="flex flex-col gap-1.5">
               {[
-                { label: "Nuevos casos", val: 13, color: "#00ADCF" },
-                { label: "Cerrados", val: 9, color: "#10B981" },
-                { label: "Con exceso vel.", val: 5, color: "#EF4444" },
-                { label: "Pendiente revisión", val: 4, color: "#F59E0B" },
+                { label: "Nuevos casos", val: resumen_mes?.nuevos_casos || 0, color: "#00ADCF" },
+                { label: "Cerrados", val: resumen_mes?.cerrados || 0, color: "#10B981" },
+                { label: "Con exceso vel.", val: resumen_mes?.con_exceso_velocidad || 0, color: "#EF4444" },
+                { label: "Pendiente revisión", val: resumen_mes?.pendiente_revision || 0, color: "#F59E0B" },
               ].map((r) => (
                 <div key={r.label} className="flex justify-between items-center text-xs">
                   <span className="text-gray-600">{r.label}</span>

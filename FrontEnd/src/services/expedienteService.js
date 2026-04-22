@@ -1,17 +1,12 @@
-// expedienteService.js
-
-import axios from 'axios';
-
-const API_URL = 'https://api.gemini.example.com/'; // Replace with actual API URL
+import { http } from "../api/http";
+import { API_PREFIX } from "../config/env";
 
 // Function to get expediente by id
 export const getExpediente = async (id) => {
     try {
-        const response = await axios.get(`${API_URL}expedientes/${id}`);
-        return response.data;
+        const { data } = await http.get(`${API_PREFIX}/siniestros/${id}`);
+        return data;
     } catch (error) {
         throw new Error('Error fetching expediente data');
     }
 };
-
-// Other service functions can be added here

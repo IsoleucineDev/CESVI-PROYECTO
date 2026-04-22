@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Eye, Trash2, RotateCcw } from "lucide-react";
+import { Search, Plus, Eye, Trash2, RotateCcw, AlertTriangle, RefreshCw } from "lucide-react";
 import { useSiniestros } from "../../hooks/useSiniestros";
 
 const ESTADO_BADGE = {
@@ -80,9 +80,18 @@ export default function Expedientes() {
 
       <div className="bg-white border border-gray-200 rounded shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-4 text-sm text-gray-600">Cargando expedientes...</div>
+          <div className="p-8 flex flex-col items-center justify-center min-h-[30vh] gap-4">
+            <RefreshCw size={24} className="text-[#00ADCF] animate-spin" />
+            <span className="text-gray-500 text-sm">Cargando expedientes...</span>
+          </div>
         ) : error ? (
-          <div className="p-4 text-sm text-red-600">{error}</div>
+          <div className="p-8 flex flex-col items-center justify-center min-h-[30vh] gap-4">
+            <AlertTriangle size={32} className="text-red-400" />
+            <span className="text-red-500 text-sm">{error}</span>
+            <button onClick={load} className="flex items-center gap-2 px-4 py-2 bg-[#00ADCF] text-white rounded hover:bg-[#0095B3]">
+              <RefreshCw size={16} /> Reintentar
+            </button>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -113,6 +122,20 @@ export default function Expedientes() {
                       <span className={`text-xs px-2 py-0.5 rounded-full ${ESTADO_BADGE[item.estado] || "bg-gray-100 text-gray-700"}`}>
                         {(item.estado || "sin_estado").replaceAll("_", " ")}
                       </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {item.velocidad_final_kmh !== null && item.velocidad_final_kmh !== undefined ? (
+                        <span className="text-gray-600">{item.velocidad_final_kmh} km/h</span>
+                      ) : (
+                        <span className="text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">En espera</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {item.velocidad_final_kmh !== null && item.velocidad_final_kmh !== undefined ? (
+                        item.exceso_velocidad ? <span className="text-xs text-red-600 font-medium">Sí</span> : <span className="text-xs text-gray-400">No</span>
+                      ) : (
+                        <span className="text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">En espera</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">

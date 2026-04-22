@@ -760,9 +760,11 @@ function StepReporte() {
         </div>
 
         <div className="bg-gray-50 border border-gray-200 rounded p-3">
-          <div className="text-xs font-medium text-gray-700 mb-2">Vista previa del reporte</div>
-          <div className="bg-white border border-gray-300 rounded h-28 flex items-center justify-center text-xs text-gray-400">
-            PDF Preview – Placeholder
+          <div className="text-xs font-medium text-gray-700 mb-2">Vista previa del dictamen en Word</div>
+          <div className="bg-white border border-gray-300 rounded h-28 flex flex-col items-center justify-center text-xs text-gray-400 gap-2">
+            <FileText size={24} className="text-[#00ADCF]" />
+            Word Preview (.docx)
+            <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-200">Editable</span>
           </div>
         </div>
 
@@ -770,7 +772,7 @@ function StepReporte() {
           <button className="w-full py-2 text-xs rounded text-white" style={{ backgroundColor: "#00ADCF" }}>
             Validar Conclusiones
           </button>
-          <button className="w-full py-2 text-xs rounded border border-gray-300 text-gray-700 hover:border-[#00ADCF]">Generar PDF</button>
+          <button className="w-full py-2 text-xs rounded border border-gray-300 text-gray-700 hover:border-[#00ADCF]">Generar Word</button>
           <button className="w-full py-2 text-xs rounded border border-gray-300 text-gray-700 hover:border-[#00ADCF]">Exportar</button>
           <button className="w-full py-2 text-xs rounded border border-yellow-400 text-yellow-700 hover:bg-yellow-50">Enviar a Revisión</button>
         </div>
