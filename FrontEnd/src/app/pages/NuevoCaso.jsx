@@ -11,6 +11,7 @@ import {
   FileText,
   Zap,
 } from "lucide-react";
+import { useSiniestros } from "../../hooks/useSiniestros";
 
 const STEPS = [
   { id: 0, label: "Incidente" },
@@ -42,48 +43,49 @@ const sel =
 const autoInp =
   "w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-gray-50 text-gray-500 cursor-not-allowed";
 
-function StepIncidente() {
+function StepIncidente({ formData, handleChange }) {
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label="Número de Siniestro" req>
-        <input className={inp} placeholder="RAT-2026-025" />
+        <input name="numero_siniestro" value={formData.numero_siniestro} onChange={handleChange} className={inp} placeholder="RAT-2026-025" />
       </Field>
       <Field label="Perito Responsable" req>
-        <select className={sel}>
-          <option>Seleccionar...</option>
-          <option>Ing. Carlos Méndez</option>
-          <option>Ing. Roberto García</option>
-          <option>Ing. Miguel López</option>
-          <option>Ing. Jorge Torres</option>
+        <select name="perito_nombre" value={formData.perito_nombre} onChange={handleChange} className={sel}>
+          <option value="">Seleccionar...</option>
+          <option value="Ing. Carlos Méndez">Ing. Carlos Méndez</option>
+          <option value="Ing. Roberto García">Ing. Roberto García</option>
+          <option value="Ing. Miguel López">Ing. Miguel López</option>
+          <option value="Ing. Jorge Torres">Ing. Jorge Torres</option>
         </select>
       </Field>
       <Field label="Fecha del Hecho" req>
-        <input type="date" className={inp} />
+        <input type="date" name="fecha_hecho" value={formData.fecha_hecho} onChange={handleChange} className={inp} />
       </Field>
       <Field label="Hora del Hecho" req>
-        <input type="time" className={inp} />
+        <input type="time" name="hora_hecho" value={formData.hora_hecho} onChange={handleChange} className={inp} />
       </Field>
       <Field label="Tipo de Hecho" req>
-        <select className={sel}>
-          <option>Seleccionar...</option>
-          <option>Colisión frontal</option>
-          <option>Colisión lateral</option>
-          <option>Colisión trasera</option>
-          <option>Volcadura</option>
-          <option>Atropellamiento</option>
-          <option>Salida de camino</option>
+        <select name="tipo_accidente" value={formData.tipo_accidente} onChange={handleChange} className={sel}>
+          <option value="">Seleccionar...</option>
+          <option value="colisión_frontal">Colisión frontal</option>
+          <option value="colisión_lateral">Colisión lateral</option>
+          <option value="colisión_trasera">Colisión trasera</option>
+          <option value="volcadura">Volcadura</option>
+          <option value="atropellamiento">Atropellamiento</option>
+          <option value="salida_carretera">Salida de camino</option>
+          <option value="otro">Otro</option>
         </select>
       </Field>
       <Field label="Estado del Análisis">
-        <select className={sel}>
-          <option>Abierto</option>
-          <option>En revisión</option>
-          <option>Finalizado</option>
+        <select name="estado" value={formData.estado} onChange={handleChange} className={sel}>
+          <option value="captura_inicial">Captura inicial</option>
+          <option value="en_revision">En revisión</option>
+          <option value="completado">Completado</option>
         </select>
       </Field>
       <div className="col-span-2">
         <Field label="Descripción Breve del Hecho" req>
-          <textarea className={`${inp} h-20 resize-none`} placeholder="Descripción general del siniestro vial..." />
+          <textarea name="descripcion_detallada" value={formData.descripcion_detallada} onChange={handleChange} className={`${inp} h-20 resize-none`} placeholder="Descripción general del siniestro vial..." />
         </Field>
       </div>
       <div className="col-span-2">
@@ -233,7 +235,7 @@ function StepOcupantes() {
   );
 }
 
-function StepVia() {
+function StepVia({ formData, handleChange }) {
   const [loadingIA, setLoadingIA] = useState(false);
   const [mensajeIA, setMensajeIA] = useState("");
 
@@ -243,7 +245,7 @@ function StepVia() {
 
     setTimeout(() => {
       setLoadingIA(false);
-      setMensajeIA("Datos sugeridos cargados");
+      setMensajeIA("Datos sugeridos cargados (UI vieja, requiere backend)");
     }, 1500);
   };
 
@@ -264,25 +266,32 @@ function StepVia() {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <Field label="Descripción del Lugar" req>
+          <Field label="Descripción de Calle / Lugar" req>
             <textarea
+              name="ubicacion_calle" value={formData.ubicacion_calle} onChange={handleChange}
               className={`${inp} h-16 resize-none`}
               placeholder="Descripción física del lugar del hecho..."
-              defaultValue={mensajeIA ? "Vía urbana con flujo medio y buena visibilidad." : ""}
             />
           </Field>
         </div>
 
-        <Field label="Km / Punto de Referencia">
-          <input className={inp} placeholder="Km 14+500 Autopista México-Querétaro" defaultValue={mensajeIA ? "Km 14+500" : ""} />
+        <Field label="Municipio / Ciudad" req>
+          <input name="ubicacion_ciudad" value={formData.ubicacion_ciudad} onChange={handleChange} className={inp} placeholder="Tepotzotlán" />
         </Field>
 
-        <Field label="Municipio / Estado" req>
-          <input className={inp} placeholder="Tepotzotlán, Estado de México" defaultValue={mensajeIA ? "Toluca, Estado de México" : ""} />
+        <Field label="Estado" req>
+          <input name="ubicacion_estado" value={formData.ubicacion_estado} onChange={handleChange} className={inp} placeholder="Estado de México" />
+        </Field>
+
+        <Field label="Código Postal" req>
+          <input name="ubicacion_cp" value={formData.ubicacion_cp} onChange={handleChange} className={inp} placeholder="54600" />
         </Field>
 
         <Field label="Coordenadas GPS (lat,lon)">
-          <input className={inp} placeholder="19.7231, -99.2189" defaultValue={mensajeIA ? "19.2826, -99.6557" : ""} />
+          <div className="flex gap-2">
+            <input name="ubicacion_lat" value={formData.ubicacion_lat} onChange={handleChange} className={inp} placeholder="Lat: 19.7231" />
+            <input name="ubicacion_lng" value={formData.ubicacion_lng} onChange={handleChange} className={inp} placeholder="Lon: -99.2189" />
+          </div>
         </Field>
 
         <Field label="Velocidad Máxima Permitida (km/h)" req>
@@ -784,12 +793,58 @@ function StepReporte() {
 export default function NuevoCaso() {
   const [activeStep, setActiveStep] = useState(0);
   const navigate = useNavigate();
+  const { add } = useSiniestros();
+  
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const [formData, setFormData] = useState({
+    numero_siniestro: `RAT-2026-${Math.floor(Math.random() * 10000)}`,
+    perito_nombre: "Ing. Carlos Méndez",
+    fecha_hecho: "2026-04-21",
+    hora_hecho: "14:30",
+    tipo_accidente: "colisión_frontal",
+    descripcion_detallada: "Colisión frontal en autopista con daños severos.",
+    estado: "captura_inicial",
+    ubicacion_calle: "Autopista México-Querétaro Km 14",
+    ubicacion_ciudad: "Tepotzotlán",
+    ubicacion_estado: "Estado de México",
+    ubicacion_cp: "54600",
+    ubicacion_lat: "19.7231",
+    ubicacion_lng: "-99.2189",
+    perito_cedula: "CED-12345",
+    perito_email: "perito@cesvimexico.com.mx"
+  });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError("");
+    
+    const payload = {
+      ...formData,
+      fecha_hora_siniestro: formData.fecha_hecho && formData.hora_hecho 
+        ? `${formData.fecha_hecho} ${formData.hora_hecho}:00` 
+        : "",
+    };
+
+    const res = await add(payload);
+    if (res.ok) {
+      navigate("/expedientes");
+    } else {
+      setSaveError(res.error || "Ocurrió un error al guardar el expediente");
+      setSaving(false);
+    }
+  };
 
   const STEP_COMPONENTS = [
-    <StepIncidente key="incidente" />,
+    <StepIncidente key="incidente" formData={formData} handleChange={handleChange} />,
     <StepVehiculo key="vehiculo" />,
     <StepOcupantes key="ocupantes" />,
-    <StepVia key="via" />,
+    <StepVia key="via" formData={formData} handleChange={handleChange} />,
     <StepEvidencia key="evidencia" />,
     <StepDeformacion key="deformacion" />,
     <StepCalculo key="calculo" />,
@@ -799,6 +854,12 @@ export default function NuevoCaso() {
 
   return (
     <div className="p-4 flex flex-col gap-4">
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-center gap-2">
+          <AlertCircle size={16} />
+          <span className="text-sm">{saveError}</span>
+        </div>
+      )}
       <div className="bg-white border border-gray-200 rounded shadow-sm p-3">
         <div className="flex items-center">
           {STEPS.map((step, i) => (
@@ -856,8 +917,14 @@ export default function NuevoCaso() {
               Siguiente <ChevronRight size={14} />
             </button>
           ) : (
-            <button className="px-4 py-2 text-xs rounded text-white font-medium" style={{ backgroundColor: "#10B981" }} onClick={() => navigate("/expedientes")}>
-              Guardar Expediente
+            <button 
+              className="px-4 py-2 text-xs rounded text-white font-medium flex items-center gap-2 disabled:opacity-50" 
+              style={{ backgroundColor: "#10B981" }} 
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? <RefreshCw size={14} className="animate-spin" /> : null}
+              {saving ? "Guardando..." : "Guardar Expediente"}
             </button>
           )}
         </div>

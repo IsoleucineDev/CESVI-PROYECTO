@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { deleteSiniestro, getSiniestros } from "../services/siniestroService";
+import { deleteSiniestro, getSiniestros, createSiniestro } from "../services/siniestroService";
 
 export function useSiniestros() {
   const [loading, setLoading] = useState(true);
@@ -60,6 +60,26 @@ export function useSiniestros() {
     }
   }, [load]);
 
+  const add = useCallback(async (payload) => {
+    try {
+      const response = await createSiniestro(payload);
+      await load();
+      return { ok: true, data: response };
+    } catch (err) {
+      let message = "No se pudo guardar el expediente";
+      if (err?.response?.status === 422 && err.response.data) {
+        // Lumen 422 validation errors are returned as an object of arrays
+        const errors = Object.values(err.response.data).flat();
+        if (errors.length > 0) {
+          message = `Errores de validación: ${errors.join(" | ")}`;
+        }
+      } else {
+        message = err?.response?.data?.message || err?.message || message;
+      }
+      return { ok: false, error: message };
+    }
+  }, [load]);
+
   return {
     loading,
     error,
@@ -69,5 +89,6 @@ export function useSiniestros() {
     filteredRows,
     load,
     remove,
+    add,
   };
 }

@@ -97,10 +97,6 @@ function TabResumen({ exp }) {
         <Row label="Límite permitido" val={exp.limite} isStatus />
         <Row label="Exceso" val={exp.exceso} highlight={exp.exceso !== null} isStatus />
         <Row label="Δv (delta)" val={exp.delta} isStatus />
-        <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded flex items-center gap-2">
-          <AlertTriangle size={14} className="text-red-500" />
-          <span className="text-xs text-red-700">La vista conserva UI vieja y muestra datos reales disponibles</span>
-        </div>
       </div>
     </div>
   );
@@ -257,14 +253,14 @@ export default function DetalleExpediente() {
         return (
           <TabPlaceholder
             title="Deformación"
-            description="Conserva el espacio visual viejo. Aquí puedes conectar después las mediciones reales cuando el backend las exponga."
+            description="Esta sección está en construcción. Las mediciones de deformación estarán disponibles próximamente."
           />
         );
       case "calculos":
         return (
           <TabPlaceholder
             title="Cálculos"
-            description="Conserva la pestaña vieja. Hoy muestra el expediente real y queda lista para colgar los cálculos periciales nuevos."
+            description="Esta sección está en construcción. Los cálculos periciales se mostrarán aquí."
           />
         );
       case "narrativa":
@@ -286,8 +282,7 @@ export default function DetalleExpediente() {
           <ArrowLeft size={13} /> Volver
         </button>
         <div>
-          <div className="text-sm text-gray-800">Detalle de expediente</div>
-          <div className="text-xs text-gray-500">Vista híbrida: UI vieja + datos reales nuevos</div>
+          <div className="text-sm text-gray-800 font-medium">Detalle de expediente</div>
         </div>
       </div>
 

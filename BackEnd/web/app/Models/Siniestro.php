@@ -24,7 +24,11 @@ class Siniestro extends Model
         'perito_email',
         'estado',
         'porcentaje_avance',
-        'cat_entorno_id'
+        'cat_entorno_id',
+        'fecha_levantamiento',
+        'ubicacion_colonia',
+        'ubicacion_cp',
+        'ubicacion_estado'
     ];
 
     protected $casts = [
