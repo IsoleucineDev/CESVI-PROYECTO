@@ -18,7 +18,7 @@ return new class extends Migration
             $table->date('fecha_hecho');
             $table->time('hora_hecho')->nullable();
             $table->unsignedInteger('tipo_hecho_id')->comment('FK → RAT_CAT_TIPO_HECHO.id');
-            $table->unsignedInteger('id_usuario_perito')->comment('FK → sys_users.id_user');
+            $table->unsignedBigInteger('id_usuario_perito')->comment('FK → sys_users.id_user');
             $table->tinyInteger('estado')->default(0)
                   ->comment('0=Abierto / 1=En revision / 2=Finalizado');
             $table->timestamps();
@@ -177,7 +177,7 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->uuid('uuid')->unique()->comment('UUID publico - usar en URLs y API');
             $table->unsignedBigInteger('incidente_id');
-            $table->unsignedInteger('id_usuario_perito')->comment('FK → sys_users.id_user');
+            $table->unsignedBigInteger('id_usuario_perito')->comment('FK → sys_users.id_user');
             $table->string('numero_formato', 50)->nullable()->comment('FOR-MPT-RAT-XX Rev.XX');
             $table->string('tipo_documento', 20)->comment('informe / dictamen');
             $table->tinyInteger('nivel_emergencia')->nullable()->comment('1 / 2 / 3');

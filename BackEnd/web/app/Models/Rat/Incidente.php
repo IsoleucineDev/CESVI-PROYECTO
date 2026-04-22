@@ -2,6 +2,7 @@
 
 namespace App\Models\Rat;
 
+use App\Models\UserData;
 use Illuminate\Database\Eloquent\Model;
 
 class Incidente extends Model
@@ -25,4 +26,6 @@ class Incidente extends Model
     public function ubicacionVia(){ return $this->hasOne(UbicacionVia::class,    'incidente_id'); }
     public function vehiculos()   { return $this->hasMany(IncidenteVehiculo::class, 'incidente_id'); }
     public function reportes()    { return $this->hasMany(Reporte::class,         'incidente_id'); }
+	public function perito() 	  { return $this->belongsTo(UserData::class, 'id_usuario_perito', 'id_user');}
+
 }

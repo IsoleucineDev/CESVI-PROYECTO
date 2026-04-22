@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models\Rat;
-
+use App\Models\UserData;
 use Illuminate\Database\Eloquent\Model;
 
 class Conclusion extends Model
@@ -23,4 +23,11 @@ class Conclusion extends Model
     {
         return $this->belongsTo(PrincipiosForenses::class, 'principios_forenses_id');
     }
+
+	public function validadoPor()
+	{
+    	return $this->belongsTo(UserData::class, 'validado_por_id', 'id_user');
+	}
+
+
 }

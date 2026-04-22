@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Rat;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Rat\Incidente;
@@ -38,7 +38,7 @@ class DashboardController extends Controller
         // ── Expedientes por mes (últimos 6 meses) ─────────────────────────────
         $expedientesPorMes = DB::table('RAT_INCIDENTE')
             ->selectRaw("DATE_FORMAT(fecha_hecho, '%Y-%m') AS mes, COUNT(*) AS total")
-            ->where('fecha_hecho', '>=', now()->subMonths(6)->startOfMonth())
+            ->where('fecha_hecho', '>=', \Carbon\Carbon::now()->subMonths(6)->startOfMonth())
             ->groupByRaw("DATE_FORMAT(fecha_hecho, '%Y-%m')")
             ->orderBy('mes')
             ->get();
@@ -73,7 +73,7 @@ class DashboardController extends Controller
             ->get();
 
         // ── Resumen del mes actual ─────────────────────────────────────────────
-        $inicioMes = now()->startOfMonth();
+        $inicioMes = \Carbon\Carbon::now()->startOfMonth();
         $resumenMes = DB::table('RAT_INCIDENTE AS i')
             ->leftJoin('RAT_INCIDENTE_VEHICULO AS iv', 'iv.incidente_id', '=', 'i.id')
             ->leftJoin('RAT_CALCULO_VELOCIDAD AS cv', 'cv.incidente_vehiculo_id', '=', 'iv.id')

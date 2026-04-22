@@ -12,26 +12,27 @@ return new class extends Migration
         // ── RAT_PERITO_PERFIL ─────────────────────────────────────────────────
         // Extiende sys_users (plataforma base) con datos propios del perito.
         Schema::create('RAT_PERITO_PERFIL', function (Blueprint $table) {
-            $table->unsignedInteger('id_user')->primary()
+            $table->unsignedBigInteger('id_user')->primary()
                   ->comment('FK → sys_users.id_user (1:1)');
             $table->string('telefono', 20)->nullable();
             $table->string('cedula_profesional', 30)->nullable();
             $table->string('especialidad', 200)->nullable()
-                  ->comment('Ej: Reconstruccion de Accidentes Viales');
+                  ->comment('Ej: Reconstrucción de Accidentes Viales');
             $table->string('numero_empleado', 30)->nullable()
                   ->comment('Ej: CESVI-MX-1048');
             $table->decimal('calificacion', 3, 1)->nullable()
                   ->comment('Rating 0.0 - 5.0');
             $table->date('fecha_alta')->nullable();
 
-            // FK a sys_users de la plataforma base
-            $table->foreign('id_user')->references('id_user')->on('sys_users');
+            // FK a sys_users
+            $table->foreign('id_user')->references('id_user')->on('sys_users')
+                  ->onDelete('cascade');
         });
 
-        // ── RAT_TABLA_RIGIDEZ_AB ──────────────────────────────────────────────
+        // ── RAT_TABLA_RIGIDEZ_AB ─────────────────────────────────────────
         Schema::create('RAT_TABLA_RIGIDEZ_AB', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->integer('categoria_mchenry')->comment('1-5 / 6=Furgon');
+            $table->integer('categoria_mchenry')->comment('1-5 / 6=Furgón');
             $table->decimal('batalla_min_m', 6, 3);
             $table->decimal('batalla_max_m', 6, 3);
             $table->decimal('via_delantera_ref_m', 6, 3)->nullable();
@@ -45,7 +46,7 @@ return new class extends Migration
             $table->foreign('tipo_golpe_id')->references('id')->on('RAT_CAT_TIPO_GOLPE');
         });
 
-        // ── RAT_TABLA_MU ──────────────────────────────────────────────────────
+        // ── RAT_TABLA_MU ────────────────────────────────────────────────
         Schema::create('RAT_TABLA_MU', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->unsignedInteger('tipo_pavimento_id');
@@ -60,7 +61,7 @@ return new class extends Migration
             $table->foreign('estado_neumatico_id')->references('id')->on('RAT_CAT_ESTADO_NEUMATICO');
         });
 
-        // ── RAT_TABLA_TIEMPO_FRENOS ───────────────────────────────────────────
+        // ── RAT_TABLA_TIEMPO_FRENOS ──────────────────────────────────────
         Schema::create('RAT_TABLA_TIEMPO_FRENOS', function (Blueprint $table) {
             $table->increments('id');
             $table->decimal('eficacia_pct', 5, 2)->comment('70 / 80 / 100');

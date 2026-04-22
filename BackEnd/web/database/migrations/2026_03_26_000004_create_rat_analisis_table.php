@@ -168,7 +168,7 @@ return new class extends Migration
             $table->text('texto_conclusion');
             $table->boolean('validado_perito')->default(false)
                   ->comment('0=pendiente / 1=validado');
-            $table->unsignedInteger('validado_por_id')->nullable()
+            $table->unsignedBigInteger('validado_por_id')->nullable()
                   ->comment('FK → sys_users.id_user');
             $table->dateTime('validado_en')->nullable();
 

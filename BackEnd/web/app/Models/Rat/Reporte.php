@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models\Rat;
-
+use App\Models\UserData;
 use Illuminate\Database\Eloquent\Model;
 
 class Reporte extends Model
@@ -29,4 +29,10 @@ class Reporte extends Model
     {
         return $this->belongsTo(Incidente::class, 'incidente_id');
     }
+	public function perito()
+	{
+    	return $this->belongsTo(UserData::class, 'id_usuario_perito', 'id_user');
+	}
+
+
 }

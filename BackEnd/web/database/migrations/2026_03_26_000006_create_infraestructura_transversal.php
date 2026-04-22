@@ -13,7 +13,7 @@ return new class extends Migration
         // Permite invalidar tokens antes de su expiracion natural (24h).
         Schema::create('jwt_tokens', function (Blueprint $table) {
             $table->increments('id')->unsigned();
-            $table->unsignedInteger('user_id');
+            $table->unsignedBigInteger('user_id');
             $table->string('token_hash', 64)->unique();
             $table->dateTime('expires_at');
             $table->dateTime('created_at')->useCurrent();
@@ -33,7 +33,7 @@ return new class extends Migration
         // Requerido para validez legal de dictamenes periciales en juicio.
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->bigIncrements('id')->unsigned();
-            $table->unsignedInteger('user_id');
+            $table->unsignedBigInteger('user_id');
             $table->string('tabla_afectada', 100);
             $table->bigInteger('registro_id');
             $table->char('registro_uuid', 36)->nullable();
@@ -64,7 +64,7 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->unsignedBigInteger('incidente_vehiculo_id')->nullable();
             $table->unsignedBigInteger('incidente_id')->nullable();
-            $table->unsignedInteger('user_id');
+            $table->unsignedBigInteger('user_id');
             $table->string('tipo', 50);
             $table->enum('estado', ['pendiente','completado','error','rechazado','aceptado'])
                   ->default('pendiente');

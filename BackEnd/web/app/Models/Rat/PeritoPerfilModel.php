@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models\Rat;
-
+use App\Models\UserData;
 use Illuminate\Database\Eloquent\Model;
 
 class PeritoPerfilModel extends Model
@@ -20,4 +20,10 @@ class PeritoPerfilModel extends Model
         'calificacion' => 'decimal:1',
         'fecha_alta'   => 'date',
     ];
+
+	public function user()
+	{
+    	return $this->belongsTo(UserData::class, 'id_user', 'id_user');
+	}
+
 }

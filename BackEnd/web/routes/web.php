@@ -30,24 +30,24 @@ $router->group(['prefix' => 'ReportePerito', 'middleware' => ['jwt']], function 
 $router->group(['prefix' => 'v1/rat'], function () use ($router) {
     $router->get('/dashboard', 'DashboardController@index');
     
-    $router->get('/siniestros', 'SiniestroController@index');
-    $router->post('/siniestros', 'SiniestroController@store');
-    $router->get('/siniestros/{id}', 'SiniestroController@show');
-    $router->put('/siniestros/{id}', 'SiniestroController@update');
-    $router->delete('/siniestros/{id}', 'SiniestroController@destroy');
-    $router->patch('/siniestros/{id}/estado', 'SiniestroController@cambiarEstado');
+    $router->get('/siniestros', 'Rat\SiniestroController@index');
+    $router->post('/siniestros', 'Rat\SiniestroController@store');
+    $router->get('/siniestros/{id}', 'Rat\SiniestroController@show');
+    $router->put('/siniestros/{id}', 'Rat\SiniestroController@update');
+    $router->delete('/siniestros/{id}', 'Rat\SiniestroController@destroy');
+    $router->patch('/siniestros/{id}/estado', 'Rat\SiniestroController@cambiarEstado');
     
-    $router->get('/siniestros/{siniestro_id}/evidencias', 'EvidenciaController@listaBySiniestro');
-    $router->post('/evidencias', 'EvidenciaController@store');
-    $router->get('/evidencias/{id}', 'EvidenciaController@show');
-    $router->put('/evidencias/{id}', 'EvidenciaController@update');
-    $router->delete('/evidencias/{id}', 'EvidenciaController@destroy');
+    $router->get('/siniestros/{siniestro_id}/evidencias', 'Rat\EvidenciaController@listaBySiniestro');
+    $router->post('/evidencias', 'Rat\EvidenciaController@store');
+    $router->get('/evidencias/{id}', 'Rat\EvidenciaController@show');
+    $router->put('/evidencias/{id}', 'Rat\EvidenciaController@update');
+    $router->delete('/evidencias/{id}', 'Rat\EvidenciaController@destroy');
     
-    $router->get('/catalogos/entorno', 'CatalogoController@entorno');
-    $router->post('/catalogos/entorno', 'CatalogoController@store');
-    $router->get('/catalogos/entorno/{id}', 'CatalogoController@show');
-    $router->put('/catalogos/entorno/{id}', 'CatalogoController@update');
-    $router->delete('/catalogos/entorno/{id}', 'CatalogoController@destroy');
+    $router->get('/catalogos/entorno', 'Rat\CatalogoController@entorno');
+    $router->post('/catalogos/entorno', 'Rat\CatalogoController@store');
+    $router->get('/catalogos/entorno/{id}', 'Rat\CatalogoController@show');
+    $router->put('/catalogos/entorno/{id}', 'Rat\CatalogoController@update');
+    $router->delete('/catalogos/entorno/{id}', 'Rat\CatalogoController@destroy');
 });
 
 // Ruta para obtener el token (Login)
