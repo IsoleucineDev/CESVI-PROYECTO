@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { deleteSiniestro, getSiniestros } from "../services/siniestroService";
+import { deleteIncidente, getIncidentes } from "../services/incidenteService";
 
-export function useSiniestros() {
+export function useIncidentes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([]);
@@ -10,9 +10,8 @@ export function useSiniestros() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-
     try {
-      const data = await getSiniestros();
+      const data = await getIncidentes();
       const payload = data?.data?.data || data?.data || data || [];
       setRows(Array.isArray(payload) ? payload : []);
     } catch (err) {
@@ -29,7 +28,6 @@ export function useSiniestros() {
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return rows;
-
     return rows.filter((item) => {
       const values = [
         item.numero_siniestro,
@@ -41,7 +39,6 @@ export function useSiniestros() {
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-
       return values.includes(term);
     });
   }, [rows, search]);
@@ -49,9 +46,8 @@ export function useSiniestros() {
   const remove = useCallback(async (id) => {
     const confirmed = window.confirm("¿Eliminar este expediente?");
     if (!confirmed) return { ok: false };
-
     try {
-      await deleteSiniestro(id);
+      await deleteIncidente(id);
       await load();
       return { ok: true };
     } catch (err) {
@@ -60,14 +56,5 @@ export function useSiniestros() {
     }
   }, [load]);
 
-  return {
-    loading,
-    error,
-    rows,
-    search,
-    setSearch,
-    filteredRows,
-    load,
-    remove,
-  };
+  return { loading, error, rows, search, setSearch, filteredRows, load, remove };
 }
