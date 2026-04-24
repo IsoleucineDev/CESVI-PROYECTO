@@ -118,4 +118,19 @@ class IncidenteController extends Controller
 
         return response()->json(['message' => 'Expediente eliminado.'], 200);
     }
+
+    public function cambiarEstado(Request $request, string $uuid): JsonResponse
+    {
+        $this->validate($request, [
+            'estado' => ['required', Rule::in([0, 1, 2, 3])],
+        ]);
+
+        $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $incidente->update(['estado' => $request->estado]);
+
+        return response()->json([
+            'message' => 'Estado actualizado.',
+            'estado'  => $incidente->estado,
+        ]);
+    }
 }
