@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 function CesviLogo() {
   const color = "#00ADCF";
@@ -26,20 +27,35 @@ function CesviLogo() {
 }
 
 export function Login() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { login } = useAuth();
+  const navigate  = useNavigate();
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     if (!email || !password) {
       setError("Ingresa tu correo y contraseña.");
       return;
     }
-    // Mock auth
-    navigate("/");
+
+    setLoading(true);
+    try {
+      // ✅ Llama al backend real a través del hook useAuth
+      await login(email, password);
+      navigate("/");
+    } catch (err) {
+      // useAuth lanza el error con el mensaje del backend
+      setError(err.message || "Credenciales inválidas. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -86,7 +102,8 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="usuario@cesvi.com.mx"
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF]"
+                  disabled={loading}
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF] disabled:opacity-50"
                 />
               </div>
             </div>
@@ -104,7 +121,8 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF]"
+                  disabled={loading}
+                  className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF] disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -118,10 +136,11 @@ export function Login() {
 
             <button
               type="submit"
-              className="w-full py-2 rounded text-white text-sm font-medium transition-opacity hover:opacity-90"
+              disabled={loading}
+              className="w-full py-2 rounded text-white text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: "#00ADCF" }}
             >
-              Iniciar Sesión
+              {loading ? "Verificando..." : "Iniciar Sesión"}
             </button>
 
             <div className="text-center">
