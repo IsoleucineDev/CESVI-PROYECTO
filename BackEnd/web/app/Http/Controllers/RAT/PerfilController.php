@@ -1,13 +1,20 @@
 <?php
 
-namespace App\Http\Controllers\Rat;
+namespace App\Http\Controllers\RAT;
 
 use App\Http\Controllers\Controller;
 use App\Models\Rat\PeritoPerfilModel;
+use App\Models\Rat\Incidente;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+
+// =============================================================================
+// PERFIL DEL PERITO
+// Alimenta las 3 pestañas de la pantalla "Mi Perfil":
+//   → Datos Personales / Mis Expedientes / Configuración
+// =============================================================================
 
 class PerfilController extends Controller
 {
@@ -118,3 +125,10 @@ class PerfilController extends Controller
         return response()->json(['message' => 'Contraseña actualizada.']);
     }
 }
+
+
+// =============================================================================
+// CATÁLOGOS
+// Devuelve los catálogos RAT para poblar los <select> del wizard.
+// Un único endpoint que devuelve todos de una vez para minimizar requests.
+// =============================================================================
