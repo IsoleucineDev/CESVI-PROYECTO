@@ -12,18 +12,26 @@ $router->get('/web', function () use ($router) {
 $router->post('/login', 'LoginController@login');
 
 // ───────────────────────────────────────────────────────────────────────
-// RUTAS RAT - SIN autenticación (para desarrollo)
+// RUTAS RAT - Soporte para Dashboard, Catálogos y Wizard
 // ───────────────────────────────────────────────────────────────────────
-$router->group(['prefix' => 'v1/rat'], function () use ($router) {
+$router->group(['prefix' => 'v1/rat', 'namespace' => 'RAT'], function () use ($router) {
     
     // Dashboard
     $router->get('/dashboard', 'DashboardController@index');
     
-    // Incidentes (controlador en App\Http\Controllers\IncidenteController)
+    // Catálogos (Se añadieron las rutas para que el Front las encuentre)
+    $router->get('/catalogos', 'CatalogoController@index');
+    $router->get('/catalogos/peritos', 'CatalogoController@peritos');
+
+    // Incidentes (Wizard y CRUD)
     $router->get('/incidentes', 'IncidenteController@index');
-    $router->post('/incidentes', 'IncidenteController@store');
+    // PASO 1: Esta es la que te daba 404 al intentar crear un nuevo expediente
+    $router->post('/incidentes', 'ExpedienteWizardController@storePaso1'); 
+    
     $router->get('/incidentes/{uuid}', 'IncidenteController@show');
-    $router->put('/incidentes/{uuid}', 'IncidenteController@update');
+    // Actualización de Pasos (Wizard)
+    $router->put('/incidentes/{uuid}', 'ExpedienteWizardController@updatePaso1'); 
+    
     $router->delete('/incidentes/{uuid}', 'IncidenteController@destroy');
     $router->patch('/incidentes/{uuid}/estado', 'IncidenteController@cambiarEstado');
     
@@ -48,6 +56,9 @@ $router->group(['prefix' => 'v1/rat'], function () use ($router) {
     $router->get('/catalogos/entorno/{id}', 'CatalogoController@show');
     $router->put('/catalogos/entorno/{id}', 'CatalogoController@update');
     $router->delete('/catalogos/entorno/{id}', 'CatalogoController@destroy');
+
+    //Docx
+    $router->get('/incidentes/{uuid}/reporte-docx', 'ReportePeritoController@generarDocx');
 });
 
 // ───────────────────────────────────────────────────────────────────────
@@ -58,14 +69,14 @@ $router->group(['middleware' => 'jwt'], function () use ($router) {
 });
 
 // ───────────────────────────────────────────────────────────────────────
-// OTRAS RUTAS
+// OTRAS RUTAS (Ajustadas con Namespace RAT donde corresponde)
 // ───────────────────────────────────────────────────────────────────────
 $router->group(['prefix' => 'Encritacion', 'middleware' => ['jwt']], function () use ($router) {
     $router->get('{id}', 'Encript@index');
     $router->post('parametros', 'Encript@parametros');
 });
 
-$router->group(['prefix' => 'VisorConsultas', 'middleware' => ['jwt']], function () use ($router) {
+$router->group(['prefix' => 'VisorConsultas', 'middleware' => ['jwt'], 'namespace' => 'RAT'], function () use ($router) {
     $router->get('ConsultaMonitorTotUser', 'MonitorController@show');
     $router->get('showDataFormFiltros', 'MonitorController@showDataFormFiltros');
     $router->put('apiConsultaDataVisor', 'MonitorController@showConsultaDataVisor');
@@ -77,7 +88,7 @@ $router->group(['prefix' => 'CatalogosGrales', 'middleware' => ['jwt']], functio
     $router->put('putCRUDCatalogo/{tipoCatalogo}/{accion}', 'CatalogosGrales\CatalogosGrales@putCRUDCatalogo');
 });
 
-$router->group(['prefix' => 'ReportePerito', 'middleware' => ['jwt']], function () use ($router) {
+$router->group(['prefix' => 'ReportePerito', 'middleware' => ['jwt'], 'namespace' => 'RAT'], function () use ($router) {
     $router->get('{id}', 'ReportePeritoController@show');
 });
 

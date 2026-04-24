@@ -623,7 +623,7 @@ function StepReporte() {
             Validar Conclusiones
           </button>
           <button className="w-full py-2 text-xs rounded border border-gray-300 text-gray-700 hover:border-[#00ADCF]">
-            Generar PDF
+            Generar DOCX
           </button>
           <button onClick={() => setField("accion", "emitir")}
             className="w-full py-2 text-xs rounded border border-yellow-400 text-yellow-700 hover:bg-yellow-50">

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\RAT;
 
 use App\Models\ViewUserData;
 use App\Models\UserData;

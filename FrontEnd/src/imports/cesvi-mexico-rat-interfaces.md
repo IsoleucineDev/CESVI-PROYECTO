@@ -309,7 +309,7 @@ Secciones:
 Agregar:
 - panel resumen del caso
 - vista previa del reporte
-- botones Validar conclusiones, Generar PDF, Exportar, Enviar a revisión
+- botones Validar conclusiones, Generar DOCX, Exportar, Enviar a revisión
 
 ### 13. Detalle de Expediente
 Vista consolidada del caso con tabs o navegación secundaria:

@@ -15,16 +15,29 @@ class CorsMiddleware
      */
     public function handle($request, Closure $next)
     {
-
+        // Manejo de peticiones preflight (OPTIONS)
         if ($request->isMethod('OPTIONS')) {
             $response = response('OK', 200);
         } else {
             $response = $next($request);
         }
 
-        $response->header('Access-Control-Allow-Origin', '*');
-        $response->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE');
-        $response->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        // Definimos las cabeceras de CORS
+        $headers = [
+            'Access-Control-Allow-Origin'  => '*',
+            'Access-Control-Allow-Methods' => 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type, Authorization, X-Requested-With',
+        ];
+
+        if (method_exists($response, 'header')) {
+            foreach ($headers as $key => $value) {
+                $response->header($key, $value);
+            }
+        } else {
+            foreach ($headers as $key => $value) {
+                $response->headers->set($key, $value);
+            }
+        }
 
         return $response;
     }

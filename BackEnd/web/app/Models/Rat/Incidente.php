@@ -22,10 +22,15 @@ class Incidente extends Model
         'updated_at'  => 'datetime',
     ];
 
+    // Relaciones existentes
     public function tipoHecho()   { return $this->belongsTo(CatTipoHecho::class, 'tipo_hecho_id'); }
     public function ubicacionVia(){ return $this->hasOne(UbicacionVia::class,    'incidente_id'); }
-    public function vehiculos()   { return $this->hasMany(IncidenteVehiculo::class, 'incidente_id'); }
     public function reportes()    { return $this->hasMany(Reporte::class,         'incidente_id'); }
-	public function perito() 	  { return $this->belongsTo(UserData::class, 'id_usuario_perito', 'id_user');}
+    public function perito()      { return $this->belongsTo(UserData::class, 'id_usuario_perito', 'id_user');}
 
+
+    public function vehiculos()   
+    { 
+        return $this->belongsToMany(Vehiculo::class, 'RAT_INCIDENTE_VEHICULO', 'incidente_id', 'vehiculo_id'); 
+    }
 }

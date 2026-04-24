@@ -7,67 +7,50 @@ export function useSiniestros() {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
 
-  const load = useCallback(async () => {
+  const loadData = useCallback(async () => { // Cambiado a loadData para evitar colisiones
     setLoading(true);
     setError("");
-
     try {
-      const data = await getSiniestros();
-      const payload = data?.data?.data || data?.data || data || [];
+      const response = await getSiniestros();
+      const payload = response?.data?.data || response?.data || response || [];
       setRows(Array.isArray(payload) ? payload : []);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "No se pudieron cargar los expedientes");
+      setError(err?.response?.data?.message || err?.message || "Error al cargar expedientes");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadData();
+  }, [loadData]);
 
-  const filteredRows = useMemo(() => {
+  const memoFilteredRows = useMemo(() => { // Nombre único para evitar colisiones
     const term = search.trim().toLowerCase();
     if (!term) return rows;
-
-    return rows.filter((item) => {
-      const values = [
-        item.numero_siniestro,
-        item.tipo_accidente,
-        item.perito_nombre,
-        item.ubicacion_ciudad,
-        item.estado,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return values.includes(term);
-    });
+    return rows.filter((item) => 
+      Object.values(item).join(" ").toLowerCase().includes(term)
+    );
   }, [rows, search]);
 
-  const remove = useCallback(async (id) => {
-    const confirmed = window.confirm("¿Eliminar este expediente?");
-    if (!confirmed) return { ok: false };
-
+  const removeSiniestro = useCallback(async (id) => {
+    if (!window.confirm("¿Eliminar este expediente?")) return { ok: false };
     try {
       await deleteSiniestro(id);
-      await load();
+      await loadData();
       return { ok: true };
     } catch (err) {
-      const message = err?.response?.data?.message || err?.message || "No se pudo eliminar el expediente";
-      return { ok: false, error: message };
+      return { ok: false, error: err?.message };
     }
-  }, [load]);
+  }, [loadData]);
 
   return {
     loading,
     error,
-    rows,
     search,
     setSearch,
-    filteredRows,
-    load,
-    remove,
+    filteredRows: memoFilteredRows,
+    load: loadData,
+    remove: removeSiniestro,
   };
 }

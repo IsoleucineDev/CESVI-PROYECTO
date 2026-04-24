@@ -317,28 +317,53 @@ function TabNarrativa({ exp }) {
 }
 
 function TabReporte({ exp }) {
+  // Función para disparar la descarga del DOCX desde el backend
+  const handleDownload = () => {
+    if (!exp?.uuid) {
+      alert("Error: No se encontró el identificador del expediente.");
+      return;
+    }
+    
+    // Abrimos la ruta del backend en una nueva pestaña para iniciar la descarga
+    const url = `http://localhost:8000/v1/rat/incidentes/${exp.uuid}/reporte-docx`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 text-xs">
           <CheckCircle size={14} /> Expediente cargado correctamente
         </div>
+        
         <div className="ml-auto flex gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]">
-            <Download size={13} /> Generar PDF
+          {/* BOTÓN CORREGIDO: Ahora dispara la descarga */}
+          <button 
+            onClick={handleDownload}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF] hover:bg-gray-50 transition-colors"
+          >
+            <Download size={13} /> Generar DOCX
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs" style={{ backgroundColor: "#00ADCF" }}>
+          
+          <button 
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs" 
+            style={{ backgroundColor: "#00ADCF" }}
+          >
             <Send size={13} /> Enviar a revisión
           </button>
         </div>
       </div>
-      <div className="border border-gray-300 rounded bg-white h-80 flex items-center justify-center text-xs text-gray-400">
-        Vista previa del reporte pericial – {exp.numero_siniestro}.pdf
+
+      {/* Actualicé la vista previa para que mencione .docx en lugar de .pdf */}
+      <div className="border border-gray-300 rounded bg-white h-80 flex flex-col items-center justify-center text-xs text-gray-400 gap-2">
+        <div className="p-4 bg-gray-50 rounded-full">
+          <FileText size={40} className="text-gray-300" />
+        </div>
+        Vista previa del reporte pericial – {exp.numero_siniestro || 'SIN_NUMERO'}.docx
       </div>
     </div>
   );
 }
-
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function DetalleExpediente() {
   const { id: uuid } = useParams(); // la ruta es /expedientes/:id pero el valor es un uuid

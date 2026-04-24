@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Eye, Trash2, RotateCcw } from "lucide-react";
+// CORREGIDO: Importación sin espacios y ruta correcta
 import { useSiniestros } from "../../hooks/useSiniestros";
 
 const ESTADO_BADGE = {
@@ -24,6 +25,7 @@ function formatDate(value) {
 
 export default function Expedientes() {
   const navigate = useNavigate();
+  // Se obtienen las funciones del hook. load y filteredRows ya vienen procesadas.
   const { loading, error, search, setSearch, filteredRows, load, remove } = useSiniestros();
 
   async function handleDelete(uuid) {
@@ -35,7 +37,7 @@ export default function Expedientes() {
     <div className="p-4 flex flex-col gap-4">
       <div className="bg-white border border-gray-200 rounded shadow-sm p-4 flex items-center justify-between gap-4">
         <div>
-          <div className="text-sm text-gray-800">Expedientes RAT</div>
+          <div className="text-sm font-bold text-gray-800">Expedientes RAT</div>
           <div className="text-xs text-gray-500 mt-0.5">Consulta y administra los siniestros registrados</div>
         </div>
         <div className="flex items-center gap-2">
@@ -48,7 +50,7 @@ export default function Expedientes() {
               className="w-64 pl-8 pr-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]"
             />
           </div>
-          <button onClick={load} className="px-3 py-2 text-xs border border-gray-300 rounded text-gray-600 hover:border-[#00ADCF] flex items-center gap-1">
+          <button onClick={() => load()} className="px-3 py-2 text-xs border border-gray-300 rounded text-gray-600 hover:border-[#00ADCF] flex items-center gap-1">
             <RotateCcw size={13} /> Actualizar
           </button>
           <button
@@ -65,7 +67,7 @@ export default function Expedientes() {
         {loading ? (
           <div className="p-4 text-sm text-gray-600">Cargando expedientes...</div>
         ) : error ? (
-          <div className="p-4 text-sm text-red-600">{error}</div>
+          <div className="p-4 text-sm text-red-600 font-medium">Error: {error}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -84,14 +86,14 @@ export default function Expedientes() {
                 {filteredRows.map((item) => (
                   <tr key={item.uuid} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-2 text-xs text-[#00ADCF] font-medium">
-                      {item.numero_siniestro || item.uuid}
+                      {item.numero_siniestro || item.uuid.substring(0,8)}
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-600">{formatDate(item.fecha_hecho)}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">{item.tipo_hecho || "—"}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{item.perito || "—"}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{item.vehiculo || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{item.perito_nombre || "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{item.vehiculo_resumen || "—"}</td>
                     <td className="px-3 py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${ESTADO_BADGE[item.estado] || "bg-gray-100 text-gray-700"}`}>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ESTADO_BADGE[item.estado] || "bg-gray-100 text-gray-700"}`}>
                         {ESTADO_LABEL[item.estado] ?? "—"}
                       </span>
                     </td>
@@ -100,14 +102,12 @@ export default function Expedientes() {
                         <button
                           onClick={() => navigate(`/expedientes/${item.uuid}`)}
                           className="text-[#00ADCF] hover:text-[#007A9A]"
-                          title="Ver detalle"
                         >
                           <Eye size={15} />
                         </button>
                         <button
                           onClick={() => handleDelete(item.uuid)}
                           className="text-red-500 hover:text-red-700"
-                          title="Eliminar"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -115,13 +115,6 @@ export default function Expedientes() {
                     </td>
                   </tr>
                 ))}
-                {!filteredRows.length && (
-                  <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-gray-500">
-                      No se encontraron expedientes.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>

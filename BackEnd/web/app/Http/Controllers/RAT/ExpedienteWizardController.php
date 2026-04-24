@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Rat;
+namespace App\Http\Controllers\RAT;
 
 use App\Http\Controllers\Controller;
 use App\Models\Rat\{
@@ -61,39 +61,46 @@ class ExpedienteWizardController extends Controller
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
         $data = $this->lumenValidate($request, [
-            'vin'                      => 'required|string|max:17',
-            'marca'                    => 'required|string|max:100',
-            'submarca'                 => 'nullable|string|max:100',
-            'nombre_modelo'            => 'nullable|string|max:200',
-            'anio_modelo'              => 'required|integer|min:1900|max:'.date('Y'),
-            'tipo_vehiculo'            => 'required|in:ligero,pesado',
-            'peso_tara_kg'             => 'nullable|numeric|min:0',
-            'masa_maxima_autorizada_kg'=> 'nullable|numeric|min:0',
-            'ancho_mm'                 => 'nullable|numeric|min:0',
-            'largo_mm'                 => 'nullable|numeric|min:0',
-            'alto_mm'                  => 'nullable|numeric|min:0',
-            'batalla_mm'               => 'nullable|numeric|min:0',
-            'entrevia_delantera_mm'    => 'nullable|numeric|min:0',
-            'entrevia_trasera_mm'      => 'nullable|numeric|min:0',
-            'numero_placas'            => 'nullable|string|max:20',
-            'rol'                      => 'required|in:A,B,C',
+            'vin'                       => 'required|string|max:17',
+            'marca'                     => 'required|string|max:100',
+            'submarca'                  => 'nullable|string|max:100',
+            'nombre_modelo'             => 'nullable|string|max:200',
+            'anio_modelo'               => 'required|integer',
+            'tipo_vehiculo'             => 'required|in:ligero,pesado',
+            'numero_placas'             => 'nullable|string|max:20',
+            'rol'                       => 'required|in:A,B,C',
         ]);
 
-        $vehiculo = Vehiculo::firstOrCreate(
+        DB::table('RAT_VEHICULO')->updateOrInsert(
             ['vin' => $data['vin']],
-            collect($data)->except(['numero_placas','color_id','estado_neumatico_id','rol'])->toArray()
+            [
+                'marca'         => $data['marca'],
+                'submarca'      => $data['submarca'] ?? null,
+                'nombre_modelo' => $data['nombre_modelo'] ?? null,
+                'anio_modelo'   => $data['anio_modelo'],
+                'tipo_vehiculo' => $data['tipo_vehiculo'],
+                'uuid'          => (string) \Illuminate\Support\Str::uuid(),
+                'updated_at'    => date('Y-m-d H:i:s')
+            ]
         );
-        if (!$vehiculo->wasRecentlyCreated) {
-            $vehiculo->update(collect($data)->except(['vin','numero_placas','color_id','estado_neumatico_id','rol'])->toArray());
-        }
-        $iv = IncidenteVehiculo::updateOrCreate(
-            ['incidente_id' => $incidente->id, 'vehiculo_id' => $vehiculo->id],
-            ['numero_placas' => $data['numero_placas'] ?? null, 'rol' => $data['rol']]
+
+        $vehiculo = DB::table('RAT_VEHICULO')->where('vin', $data['vin'])->first();
+
+
+        $incidenteId = $incidente->getAttributes()['id'];
+
+        DB::table('RAT_INCIDENTE_VEHICULO')->updateOrInsert(
+            ['incidente_id' => $incidenteId, 'vehiculo_id' => $vehiculo->id],
+            [
+                'numero_placas' => $data['numero_placas'] ?? null,
+                'rol'           => $data['rol'],
+                'uuid'          => (string) \Illuminate\Support\Str::uuid()
+            ]
         );
+
         return response()->json([
-            'message'                 => 'Paso 2 guardado.',
-            'vehiculo_uuid'           => $vehiculo->uuid,
-            'incidente_vehiculo_uuid' => $iv->uuid,
+            'message' => 'Paso 2 guardado correctamente.',
+            'vehiculo_id' => $vehiculo->id
         ]);
     }
 
@@ -255,10 +262,10 @@ class ExpedienteWizardController extends Controller
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
         $data = $this->lumenValidate($request, [
             'principio_intercambio_materiales' => 'nullable|string',
-            'principio_correspondencia'        => 'nullable|string',
-            'conclusiones_texto'               => 'nullable|string',
-            'tipo_documento'                   => 'required|in:informe,dictamen',
-            'accion'                           => 'nullable|in:guardar,validar,emitir',
+            'principio_correspondencia'         => 'nullable|string',
+            'conclusiones_texto'                => 'nullable|string',
+            'tipo_documento'                    => 'required|in:informe,dictamen',
+            'accion'                            => 'nullable|in:guardar,validar,emitir',
         ]);
 
         $iv = $this->getIncidenteVehiculo($incidente);
@@ -269,7 +276,7 @@ class ExpedienteWizardController extends Controller
                     ['incidente_vehiculo_id' => $iv->id],
                     [
                         'principio_intercambio_materiales' => $data['principio_intercambio_materiales'] ?? null,
-                        'principio_correspondencia'        => $data['principio_correspondencia'] ?? null,
+                        'principio_correspondencia'         => $data['principio_correspondencia'] ?? null,
                     ]
                 );
             }
@@ -293,7 +300,6 @@ class ExpedienteWizardController extends Controller
         return response()->json(['message' => 'Paso 9 guardado.', 'estado_incidente' => $incidente->fresh()->estado]);
     }
 
-    // Devuelve null si no hay vehículo (no truena)
     private function getIncidenteVehiculo(Incidente $incidente): ?IncidenteVehiculo
     {
         return IncidenteVehiculo::where('incidente_id', $incidente->id)->orderBy('id')->first();

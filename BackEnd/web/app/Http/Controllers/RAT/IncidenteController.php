@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Rat;
+namespace App\Http\Controllers\RAT;
 
 use App\Http\Controllers\Controller;
 use App\Models\Rat\Incidente;
@@ -89,53 +89,13 @@ class IncidenteController extends Controller
      * Detalle completo de un expediente. Carga todas las secciones
      * del wizard para permitir ver / editar el expediente.
      */
-    public function show(string $uuid): JsonResponse
+    public function show($uuid)
     {
         $incidente = Incidente::where('uuid', $uuid)
-            ->with([
-                'tipoHecho',
-                'ubicacionVia.tipoVia',
-                'ubicacionVia.tipoTrazo',
-                'ubicacionVia.condicionSuperficie',
-                'ubicacionVia.tipoPavimento',
-                'ubicacionVia.clima',
-                'ubicacionVia.huellas.tipoIndicio',
-                'vehiculos.vehiculo',
-                'vehiculos.color',
-                'vehiculos.estadoNeumatico',
-                'vehiculos.ocupacionCarga',
-                'vehiculos.fotos.tipoFoto',
-                'vehiculos.deformacionMedicion.tipoGolpe',
-                'vehiculos.calculoVelocidad',
-                'vehiculos.faseAccidente',
-                'vehiculos.narrativaDinamica',
-                'vehiculos.principiosForenses.conclusiones',
-                'reportes',
-            ])
+            ->with(['tipoHecho', 'ubicacionVia', 'vehiculos', 'perito']) 
             ->firstOrFail();
 
-        return response()->json($incidente);
-    }
-
-    /**
-     * PATCH /api/rat/incidentes/{uuid}/estado
-     *
-     * Cambia el estado del expediente (0=Abierto, 1=En revisión, 2=Finalizado).
-     * Usado desde la lista de expedientes y desde el paso 9 (Reporte).
-     */
-    public function cambiarEstado(Request $request, string $uuid): JsonResponse
-    {
-        $request->validate([
-            'estado' => ['required', Rule::in([0, 1, 2])],
-        ]);
-
-        $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
-        $incidente->update(['estado' => $request->input('estado')]);
-
-        return response()->json([
-            'message' => 'Estado actualizado.',
-            'estado'  => $incidente->estado,
-        ]);
+    return response()->json($incidente);
     }
 
     /**
