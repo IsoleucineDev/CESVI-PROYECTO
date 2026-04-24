@@ -1,8 +1,8 @@
 import { http } from "../api/http";
 import { API_PREFIX } from "../config/env";
 
-export async function getEvidenciasBySiniestro(siniestroId) {
-  const { data } = await http.get(`${API_PREFIX}/siniestros/${siniestroId}/evidencias`);
+export async function getEvidenciasByIncidente(incidenteId) {
+  const { data } = await http.get(`${API_PREFIX}/incidentes/${incidenteId}/evidencias`);
   return data;
 }
 

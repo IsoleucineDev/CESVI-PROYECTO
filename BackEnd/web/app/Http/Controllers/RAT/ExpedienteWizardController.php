@@ -65,7 +65,7 @@ class ExpedienteWizardController extends Controller
             'marca'                    => 'required|string|max:100',
             'submarca'                 => 'nullable|string|max:100',
             'nombre_modelo'            => 'nullable|string|max:200',
-            'anio_modelo'              => 'required|integer|min:1900|max:'.date('Y'),
+            'anio_modelo'              => 'required|integer|min:1901|max:'.date('Y'),
             'tipo_vehiculo'            => 'required|in:ligero,pesado',
             'peso_tara_kg'             => 'nullable|numeric|min:0',
             'masa_maxima_autorizada_kg'=> 'nullable|numeric|min:0',
