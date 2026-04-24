@@ -1,0 +1,95 @@
+<?php
+
+$router->get('/web', function () use ($router) {
+    return response()->json(["response" => "TempletDynamiCESVI"], 200);
+});
+
+$router->post('/login', 'LoginController@login');
+
+// Catálogos SIN auth (para wizard inicial)
+$router->group(['prefix' => 'v1/rat'], function () use ($router) {
+    $router->get('/catalogos', 'Rat\CatalogoController@index');
+    $router->get('/catalogos/peritos', 'Rat\CatalogoController@peritos');
+});
+
+// Dashboard sin middleware (ajustar si se requiere jwt)
+$router->get('/v1/rat/dashboard', 'DashboardController@index');
+
+$router->group(['prefix' => 'v1/rat', 'middleware' => 'jwt'], function () use ($router) {
+
+    // Incidentes
+    $router->get('/incidentes', 'Rat\IncidenteController@index');
+    $router->post('/incidentes', 'Rat\IncidenteController@store');
+    $router->get('/incidentes/{uuid}', 'Rat\IncidenteController@show');
+    $router->put('/incidentes/{uuid}', 'Rat\IncidenteController@update');
+    $router->delete('/incidentes/{uuid}', 'Rat\IncidenteController@destroy');
+    $router->patch('/incidentes/{uuid}/estado', 'Rat\IncidenteController@cambiarEstado');
+
+    // Wizard de 9 pasos
+    $router->post('/wizard/paso1-incidente', 'Rat\ExpedienteWizardController@storePaso1');
+    $router->put('/wizard/{uuid}/paso1-incidente', 'Rat\ExpedienteWizardController@updatePaso1');
+    $router->put('/wizard/{uuid}/paso2-vehiculo', 'Rat\ExpedienteWizardController@updatePaso2');
+    $router->put('/wizard/{uuid}/paso3-ocupantes', 'Rat\ExpedienteWizardController@updatePaso3');
+    $router->put('/wizard/{uuid}/paso4-via', 'Rat\ExpedienteWizardController@updatePaso4');
+    $router->post('/wizard/{uuid}/paso5-evidencia', 'Rat\ExpedienteWizardController@storePaso5');
+    $router->delete('/wizard/{uuid}/paso5-evidencia/{fotoId}', 'Rat\ExpedienteWizardController@destroyFoto');
+    $router->put('/wizard/{uuid}/paso6-deformacion', 'Rat\ExpedienteWizardController@updatePaso6');
+    $router->post('/wizard/{uuid}/paso7-calculo', 'Rat\ExpedienteWizardController@storePaso7');
+    $router->put('/wizard/{uuid}/paso8-narrativa', 'Rat\ExpedienteWizardController@updatePaso8');
+    $router->put('/wizard/{uuid}/paso9-reporte', 'Rat\ExpedienteWizardController@updatePaso9');
+
+    // Siniestros (legado)
+    $router->get('/siniestros', 'SiniestroController@index');
+    $router->post('/siniestros', 'SiniestroController@store');
+    $router->get('/siniestros/{id}', 'SiniestroController@show');
+    $router->put('/siniestros/{id}', 'SiniestroController@update');
+    $router->delete('/siniestros/{id}', 'SiniestroController@destroy');
+    $router->patch('/siniestros/{id}/estado', 'SiniestroController@cambiarEstado');
+
+    // Evidencias
+    $router->get('/siniestros/{siniestro_id}/evidencias', 'EvidenciaController@listaBySiniestro');
+    $router->post('/evidencias', 'EvidenciaController@store');
+    $router->get('/evidencias/{id}', 'EvidenciaController@show');
+    $router->put('/evidencias/{id}', 'EvidenciaController@update');
+    $router->delete('/evidencias/{id}', 'EvidenciaController@destroy');
+
+    // Catálogos entorno
+    $router->get('/catalogos/entorno', 'CatalogoController@entorno');
+    $router->post('/catalogos/entorno', 'CatalogoController@store');
+    $router->get('/catalogos/entorno/{id}', 'CatalogoController@show');
+    $router->put('/catalogos/entorno/{id}', 'CatalogoController@update');
+    $router->delete('/catalogos/entorno/{id}', 'CatalogoController@destroy');
+});
+
+$router->group(['middleware' => 'jwt'], function () use ($router) {
+    $router->get('/me', 'LoginController@me');
+});
+
+$router->group(['prefix' => 'Encritacion', 'middleware' => ['jwt']], function () use ($router) {
+    $router->get('{id}', 'Encript@index');
+    $router->post('parametros', 'Encript@parametros');
+});
+
+$router->group(['prefix' => 'VisorConsultas', 'middleware' => ['jwt']], function () use ($router) {
+    $router->get('ConsultaMonitorTotUser', 'MonitorController@show');
+    $router->get('showDataFormFiltros', 'MonitorController@showDataFormFiltros');
+    $router->put('apiConsultaDataVisor', 'MonitorController@showConsultaDataVisor');
+    $router->put('apiOnVerDetalle', 'MonitorController@showapiOnVerDetalle');
+});
+
+$router->group(['prefix' => 'CatalogosGrales', 'middleware' => ['jwt']], function () use ($router) {
+    $router->get('getDataCatalogoGral/{tipoCatalogo}', 'CatalogosGrales\CatalogosGrales@getDataCatalogoGral');
+    $router->put('putCRUDCatalogo/{tipoCatalogo}/{accion}', 'CatalogosGrales\CatalogosGrales@putCRUDCatalogo');
+});
+
+$router->group(['prefix' => 'ReportePerito', 'middleware' => ['jwt']], function () use ($router) {
+    $router->get('{id}', 'ReportePeritoController@show');
+});
+
+$router->get('/test', function () {
+    return "¡La API está viva!";
+});
+
+$router->get('/hola', function () {
+    return "Lumen está funcionando";
+});
