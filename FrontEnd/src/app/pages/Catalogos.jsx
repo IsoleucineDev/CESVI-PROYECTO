@@ -1,50 +1,25 @@
 import React, { useState } from "react";
-import { Edit2, LayoutGrid, Plus, RotateCcw, X, HelpCircle } from "lucide-react";
+import { Edit2, LayoutGrid, Plus, RotateCcw, X, Trash2 } from "lucide-react";
+import { useCatalogoEntorno } from "../../hooks/useCatalogoEntorno";
 
-const CATALOGOS_OPTIONS = [
-  "Catálogo General",
-  "Tipos de Hecho",
-  "Tipos de Vía",
-  "Estados del Análisis",
-  "Peritos Registrados",
-  "Pavimentos",
-  "Condiciones de Superficie",
-  "Categorías McHenry",
-];
+const CLIMA_OPTIONS    = ["soleado","nublado","lluvia_ligera","lluvia_fuerte","niebla","granizo","nieve","otro"];
+const VIA_OPTIONS      = ["autopista","carretera_federal","carretera_estatal","avenida","calle","callejón","otro"];
+const SUPERFICIE_OPTIONS = ["asfalto","concreto","terracería","grava","adoquín","otro"];
+const ILUMINACION_OPTIONS = ["diurna","nocturna_iluminada","nocturna_sin_iluminar","atardecer"];
+const VISIBILIDAD_OPTIONS = ["excelente","buena","regular","mala","muy_mala"];
 
-const CATALOGO_DATA = {
-  "Catálogo General": [
-    { id: 1, catalogo: "sys_elements", alias: "Sys Catálogo de elementos", tipo: "operation" },
-    { id: 2, catalogo: "sys_attributes", alias: "Sys Catálogo de atributos de elementos", tipo: "operation" },
-    { id: 3, catalogo: "sys_cat_tables", alias: "Sys Catálogo General", tipo: "operation" },
-    { id: 4, catalogo: "sys_elements_attributes", alias: "Sys Elementos vs Atributos", tipo: "operation" },
-    { id: 5, catalogo: "sys_menu", alias: "Sys Menu", tipo: "operation" },
-    { id: 6, catalogo: "sys_cat_companys", alias: "Catálogo de companias", tipo: "operation" },
-    { id: 7, catalogo: "sys_cat_rol", alias: "Catálogo de roles", tipo: "operation" },
-    { id: 8, catalogo: "sys_attributes_columns", alias: "Sys Catalogo de atributos Columna", tipo: "operation" },
-    { id: 9, catalogo: "sys_columns_attributes", alias: "Sys Columna vs atributos", tipo: "operation" },
-    { id: 10, catalogo: "rat_tipos_hecho", alias: "RAT Tipos de hecho vial", tipo: "operation" },
-    { id: 11, catalogo: "rat_tipos_via", alias: "RAT Tipos de vía", tipo: "operation" },
-  ],
-  "Tipos de Hecho": [
-    { id: 1, catalogo: "colision_frontal", alias: "Colisión Frontal", tipo: "enum" },
-    { id: 2, catalogo: "colision_lateral", alias: "Colisión Lateral", tipo: "enum" },
-    { id: 3, catalogo: "colision_trasera", alias: "Colisión Trasera", tipo: "enum" },
-    { id: 4, catalogo: "volcadura", alias: "Volcadura", tipo: "enum" },
-    { id: 5, catalogo: "atropellamiento", alias: "Atropellamiento", tipo: "enum" },
-    { id: 6, catalogo: "salida_camino", alias: "Salida de Camino", tipo: "enum" },
-  ],
-  "Tipos de Vía": [
-    { id: 1, catalogo: "autopista", alias: "Autopista", tipo: "enum" },
-    { id: 2, catalogo: "carretera_federal", alias: "Carretera Federal", tipo: "enum" },
-    { id: 3, catalogo: "carretera_estatal", alias: "Carretera Estatal", tipo: "enum" },
-    { id: 4, catalogo: "vialidad_primaria", alias: "Vialidad Urbana Primaria", tipo: "enum" },
-    { id: 5, catalogo: "calle_secundaria", alias: "Calle Secundaria", tipo: "enum" },
-  ],
-};
+const EMPTY_FORM = { clima: "", tipo_via: "", superficie: "", iluminacion: "", visibilidad: "", observaciones: "" };
 
-function Modal({ onClose, editRow, catName }) {
+function Modal({ onClose, editRow, onSave, saving, error }) {
+  const [form, setForm] = useState(editRow || EMPTY_FORM);
   const isEdit = !!editRow;
+
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSave = async () => {
+    const result = await onSave(form);
+    if (result.ok) onClose();
+  };
 
   return (
     <>
@@ -53,64 +28,70 @@ function Modal({ onClose, editRow, catName }) {
         <div className="bg-white rounded shadow-xl w-full max-w-lg border border-gray-200">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
             <span className="text-sm font-medium text-gray-700">
-              {isEdit ? "Editar Registro" : "Nuevo Registro"} – {catName}
+              {isEdit ? "Editar Entorno" : "Nuevo Entorno"}
             </span>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <X size={16} />
-            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
 
           <div className="px-4 py-4 grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">
-                Catálogo (nombre interno) <span className="text-red-500">*</span>
-              </label>
-              <input
-                className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]"
-                defaultValue={editRow?.catalogo || ""}
-                placeholder="sys_nuevo_catalogo"
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">
-                Alias (descripción) <span className="text-red-500">*</span>
-              </label>
-              <input
-                className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]"
-                defaultValue={editRow?.alias || ""}
-                placeholder="Nombre legible del catálogo"
-              />
-            </div>
+            {error && (
+              <div className="col-span-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                {error}
+              </div>
+            )}
 
             <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Tipo <span className="text-red-500">*</span>
-              </label>
-              <select
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white"
-                defaultValue={editRow?.tipo || "operation"}
-              >
-                <option value="operation">operation</option>
-                <option value="enum">enum</option>
-                <option value="lookup">lookup</option>
-                <option value="config">config</option>
+              <label className="block text-xs text-gray-600 mb-1">Clima <span className="text-red-500">*</span></label>
+              <select className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white"
+                value={form.clima} onChange={(e) => set("clima", e.target.value)}>
+                <option value="">Seleccionar...</option>
+                {CLIMA_OPTIONS.map((o) => <option key={o}>{o}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-600 mb-1">Estado</label>
-              <select className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white">
-                <option>Activo</option>
-                <option>Inactivo</option>
+              <label className="block text-xs text-gray-600 mb-1">Tipo de Vía <span className="text-red-500">*</span></label>
+              <select className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white"
+                value={form.tipo_via} onChange={(e) => set("tipo_via", e.target.value)}>
+                <option value="">Seleccionar...</option>
+                {VIA_OPTIONS.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Superficie <span className="text-red-500">*</span></label>
+              <select className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white"
+                value={form.superficie} onChange={(e) => set("superficie", e.target.value)}>
+                <option value="">Seleccionar...</option>
+                {SUPERFICIE_OPTIONS.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Iluminación <span className="text-red-500">*</span></label>
+              <select className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white"
+                value={form.iluminacion} onChange={(e) => set("iluminacion", e.target.value)}>
+                <option value="">Seleccionar...</option>
+                {ILUMINACION_OPTIONS.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Visibilidad <span className="text-red-500">*</span></label>
+              <select className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white"
+                value={form.visibilidad} onChange={(e) => set("visibilidad", e.target.value)}>
+                <option value="">Seleccionar...</option>
+                {VISIBILIDAD_OPTIONS.map((o) => <option key={o}>{o}</option>)}
               </select>
             </div>
 
             <div className="col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">Descripción</label>
+              <label className="block text-xs text-gray-600 mb-1">Observaciones</label>
               <textarea
                 className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] h-14 resize-none"
-                placeholder="Descripción opcional del catálogo..."
+                value={form.observaciones || ""}
+                onChange={(e) => set("observaciones", e.target.value)}
+                placeholder="Observaciones opcionales..."
               />
             </div>
           </div>
@@ -119,8 +100,10 @@ function Modal({ onClose, editRow, catName }) {
             <button onClick={onClose} className="px-4 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:border-gray-400">
               CANCELAR
             </button>
-            <button onClick={onClose} className="px-4 py-1.5 text-xs rounded text-white" style={{ backgroundColor: "#00ADCF" }}>
-              GUARDAR
+            <button onClick={handleSave} disabled={saving}
+              className="px-4 py-1.5 text-xs rounded text-white disabled:opacity-60"
+              style={{ backgroundColor: "#00ADCF" }}>
+              {saving ? "GUARDANDO..." : "GUARDAR"}
             </button>
           </div>
         </div>
@@ -130,116 +113,110 @@ function Modal({ onClose, editRow, catName }) {
 }
 
 export default function Catalogos() {
-  const [catSelected, setCatSelected] = useState("Catálogo General");
+  const { entorno, loading, error, load, add, edit, remove } = useCatalogoEntorno();
   const [showModal, setShowModal] = useState(false);
-  const [editRow, setEditRow] = useState(null);
+  const [editRow, setEditRow]     = useState(null);
+  const [saving, setSaving]       = useState(false);
 
-  const rows = CATALOGO_DATA[catSelected] || CATALOGO_DATA["Catálogo General"];
+  const openNew  = () => { setEditRow(null); setShowModal(true); };
+  const openEdit = (row) => { setEditRow(row); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditRow(null); };
 
-  const openNew = () => {
-    setEditRow(null);
-    setShowModal(true);
+  const handleSave = async (form) => {
+    setSaving(true);
+    const result = editRow ? await edit(editRow.id, form) : await add(form);
+    setSaving(false);
+    return result;
   };
 
-  const openEdit = (row) => {
-    setEditRow(row);
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setEditRow(null);
+  const handleDelete = async (id) => {
+    await remove(id);
   };
 
   return (
     <div className="p-4 flex flex-col gap-3">
-      <div className="bg-white border border-gray-200 rounded shadow-sm p-3">
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-gray-700">
-            <span className="text-red-500">*</span>
-            Catálogo
-            <button title="Selecciona el catálogo a visualizar" className="text-gray-400 hover:text-[#00ADCF]">
-              <HelpCircle size={13} />
-            </button>
-            :
-          </label>
-
-          <div className="relative">
-            <select
-              className="pl-2.5 pr-8 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white appearance-none min-w-[180px]"
-              value={catSelected}
-              onChange={(e) => setCatSelected(e.target.value)}
-            >
-              {CATALOGOS_OPTIONS.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <button className="p-1.5 rounded text-white" style={{ backgroundColor: "#00ADCF" }} title="Recargar catálogo">
-            <RotateCcw size={14} />
-          </button>
-        </div>
-      </div>
-
       <div className="bg-white border border-gray-200 rounded shadow-sm">
         <div className="flex items-center justify-between px-4 py-2.5 rounded-t" style={{ backgroundColor: "#9E9E9E" }}>
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <LayoutGrid size={18} className="text-white" />
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs px-1 rounded-full leading-none py-px">
-                {rows.length}
-              </span>
-            </div>
-            <span className="text-white text-sm">| {catSelected}</span>
+            <LayoutGrid size={18} className="text-white" />
+            <span className="text-white text-sm">| Catálogo de Entorno</span>
+            <span className="bg-red-500 text-white text-xs px-1.5 rounded-full leading-none py-px">
+              {entorno.length}
+            </span>
           </div>
-
           <div className="flex items-center gap-2">
             <button onClick={openNew} className="text-white hover:text-gray-200" title="Agregar registro">
               <Plus size={18} />
             </button>
-            <button className="text-white hover:text-gray-200" title="Refrescar">
+            <button onClick={load} className="text-white hover:text-gray-200" title="Refrescar">
               <RotateCcw size={16} />
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto" style={{ maxHeight: "calc(100vh - 320px)", overflowY: "auto" }}>
-          <table className="w-full">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left text-xs text-gray-500 px-4 py-2 w-12">#</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Catálogo</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Alias</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500">Tipo</th>
-                <th className="px-3 py-2 text-xs text-gray-500 text-right w-20">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-2 text-xs text-gray-500">{row.id}</td>
-                  <td className="px-3 py-2 text-xs text-gray-700">{row.catalogo}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{row.alias}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{row.tipo}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openEdit(row)} className="text-red-500 hover:text-red-700" title="Editar">
-                        <Edit2 size={15} />
-                      </button>
-                      <button onClick={() => openEdit(row)} className="text-red-400 hover:text-red-600" title="Ver registros">
-                        <LayoutGrid size={15} />
-                      </button>
-                    </div>
-                  </td>
+        <div className="overflow-x-auto" style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
+          {loading ? (
+            <div className="p-4 text-sm text-gray-500">Cargando catálogo...</div>
+          ) : error ? (
+            <div className="p-4 text-sm text-red-600">{error}</div>
+          ) : (
+            <table className="w-full">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left text-xs text-gray-500 px-4 py-2 w-12">#</th>
+                  <th className="px-3 py-2 text-left text-xs text-gray-500">Clima</th>
+                  <th className="px-3 py-2 text-left text-xs text-gray-500">Tipo Vía</th>
+                  <th className="px-3 py-2 text-left text-xs text-gray-500">Superficie</th>
+                  <th className="px-3 py-2 text-left text-xs text-gray-500">Iluminación</th>
+                  <th className="px-3 py-2 text-left text-xs text-gray-500">Visibilidad</th>
+                  <th className="px-3 py-2 text-left text-xs text-gray-500">Observaciones</th>
+                  <th className="px-3 py-2 text-xs text-gray-500 text-right w-20">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {entorno.map((row) => (
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-2 text-xs text-gray-500">{row.id}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700">{row.clima}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{row.tipo_via}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{row.superficie}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{row.iluminacion}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{row.visibilidad}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{row.observaciones || "—"}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEdit(row)} className="text-[#00ADCF] hover:text-[#007A9A]" title="Editar">
+                          <Edit2 size={15} />
+                        </button>
+                        <button onClick={() => handleDelete(row.id)} className="text-red-500 hover:text-red-700" title="Eliminar">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!entorno.length && (
+                  <tr>
+                    <td colSpan="8" className="px-4 py-8 text-center text-sm text-gray-500">
+                      No hay registros en el catálogo.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      {showModal && <Modal onClose={closeModal} editRow={editRow} catName={catSelected} />}
+      {showModal && (
+        <Modal
+          onClose={closeModal}
+          editRow={editRow}
+          onSave={handleSave}
+          saving={saving}
+          error={error}
+        />
+      )}
     </div>
   );
 }
