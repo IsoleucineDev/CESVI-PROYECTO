@@ -1,234 +1,327 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
-  Edit2,
-  Download,
-  Send,
-  CheckCircle,
-  AlertTriangle,
-  FileText,
-  User,
-  Camera,
-  Ruler,
-  Calculator,
-  BookOpen,
+  ArrowLeft, Download, Send, CheckCircle,
+  AlertTriangle, FileText, User, Camera,
+  Ruler, Calculator, BookOpen,
 } from "lucide-react";
+import { getIncidenteById } from "../../services/incidenteService";
 
 const TABS = [
-  { id: "resumen", label: "Resumen", icon: <FileText size={14} /> },
-  { id: "vehiculo", label: "Vehículo", icon: <User size={14} /> },
-  { id: "evidencia", label: "Evidencia", icon: <Camera size={14} /> },
-  { id: "deformacion", label: "Deformación", icon: <Ruler size={14} /> },
-  { id: "calculos", label: "Cálculos", icon: <Calculator size={14} /> },
-  { id: "narrativa", label: "Narrativa", icon: <BookOpen size={14} /> },
-  { id: "reporte", label: "Reporte", icon: <FileText size={14} /> },
+  { id: "resumen",    label: "Resumen",    icon: <FileText size={14} /> },
+  { id: "vehiculo",   label: "Vehículo",   icon: <User size={14} /> },
+  { id: "evidencia",  label: "Evidencia",  icon: <Camera size={14} /> },
+  { id: "deformacion",label: "Deformación",icon: <Ruler size={14} /> },
+  { id: "calculos",   label: "Cálculos",   icon: <Calculator size={14} /> },
+  { id: "narrativa",  label: "Narrativa",  icon: <BookOpen size={14} /> },
+  { id: "reporte",    label: "Reporte",    icon: <FileText size={14} /> },
 ];
+
+const ESTADO_BADGE = {
+  0: "bg-blue-100 text-blue-700",
+  1: "bg-yellow-100 text-yellow-700",
+  2: "bg-green-100 text-green-700",
+};
+const ESTADO_LABEL = { 0: "Abierto", 1: "En revisión", 2: "Finalizado" };
 
 function Row({ label, val, highlight }) {
   return (
     <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
       <span className="text-xs text-gray-500">{label}</span>
-      <span className={`text-xs font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>{val}</span>
+      <span className={`text-xs font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>
+        {val || "—"}
+      </span>
     </div>
   );
 }
+
+function formatFecha(val) {
+  if (!val) return "—";
+  const d = new Date(val);
+  return isNaN(d) ? val : d.toLocaleDateString("es-MX");
+}
+
+// ── Normaliza la respuesta del backend al shape que usan las tabs ─────────────
+// Rat\IncidenteController@show devuelve el modelo Incidente con relaciones:
+//   tipoHecho, ubicacionVia, vehiculos.vehiculo, vehiculos.calculoVelocidad,
+//   vehiculos.narrativaDinamica, vehiculos.principiosForenses.conclusiones, reportes
+function normalizeExp(raw) {
+  if (!raw) return null;
+
+  const iv       = raw.vehiculos?.[0];           // primer incidente_vehiculo
+  const vehiculo = iv?.vehiculo;                  // RAT_VEHICULO
+  const calculo  = iv?.calculoVelocidad;          // RAT_CALCULO_VELOCIDAD
+  const narrativa= iv?.narrativaDinamica;         // RAT_NARRATIVA_DINAMICA
+  const ubicacion= raw.ubicacionVia;              // RAT_UBICACION_VIA
+  const reporte  = raw.reportes?.[0];             // RAT_REPORTE
+  const principios = iv?.principiosForenses;       // RAT_PRINCIPIOS_FORENSES
+  const fotos    = iv?.fotos ?? [];               // RAT_FOTO[]
+
+  return {
+    // Datos principales
+    uuid            : raw.uuid,
+    numero_siniestro: raw.numero_siniestro,
+    fecha_hecho     : formatFecha(raw.fecha_hecho),
+    hora_hecho      : raw.hora_hecho ?? "—",
+    tipo_hecho      : raw.tipoHecho?.nombre ?? "—",
+    estado          : raw.estado,
+    estado_label    : ESTADO_LABEL[raw.estado] ?? "—",
+    estado_badge    : ESTADO_BADGE[raw.estado] ?? "bg-gray-100 text-gray-700",
+
+    // Ubicación
+    lugar: [ubicacion?.calle, ubicacion?.municipio, ubicacion?.estado_republica]
+      .filter(Boolean).join(", ") || "—",
+    velocidad_limite: ubicacion?.velocidad_maxima_permitida_kmh
+      ? `${ubicacion.velocidad_maxima_permitida_kmh} km/h` : "—",
+
+    // Vehículo
+    vehiculo_str : vehiculo
+      ? [vehiculo.marca, vehiculo.submarca, vehiculo.anio_modelo].filter(Boolean).join(" ")
+      : "—",
+    vin    : vehiculo?.vin ?? "—",
+    placas : iv?.numero_placas ?? "—",
+    color  : iv?.color?.nombre ?? "—",
+
+    // Cálculos
+    velocidad_preimpacto: calculo?.velocidad_pre_impacto_kmh
+      ? `${calculo.velocidad_pre_impacto_kmh} km/h` : "—",
+    velocidad_impacto: calculo?.velocidad_impacto_kmh
+      ? `${calculo.velocidad_impacto_kmh} km/h` : "—",
+    exceso: calculo?.exceso_velocidad === 1
+      ? `+${calculo.delta_exceso_kmh ?? "?"} km/h` : "Sin exceso",
+    delta_v: calculo?.delta_exceso_kmh ? `${calculo.delta_exceso_kmh} km/h` : "—",
+    hay_exceso: calculo?.exceso_velocidad === 1,
+
+    // Narrativa
+    narracion        : narrativa?.narracion_hechos ?? "Sin narrativa registrada.",
+    objeto_involucrado: narrativa?.objeto_involucrado ?? "—",
+
+    // Principios forenses
+    principio_intercambio: principios?.principio_intercambio_materiales ?? "—",
+    principio_correspondencia: principios?.principio_correspondencia ?? "—",
+
+    // Fotos
+    fotos,
+
+    // Reporte
+    reporte_uuid: reporte?.uuid,
+
+    // Raw por si alguna tab necesita más datos
+    raw,
+  };
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
 
 function TabResumen({ exp }) {
   return (
     <div className="grid grid-cols-3 gap-4">
       <div>
-        <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">Datos del Incidente</div>
-        <Row label="No. Expediente" val={exp.id} />
-        <Row label="Fecha" val={exp.fecha} />
-        <Row label="Hora" val={exp.hora} />
-        <Row label="Tipo" val={exp.tipo} />
-        <Row label="Estado" val={exp.estado} />
-        <Row label="Perito" val={exp.perito} />
-        <Row label="Lugar" val={exp.lugar} />
-      </div>
-      <div>
-        <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">Datos del Vehículo</div>
-        <Row label="Vehículo" val={exp.vehiculo} />
-        <Row label="VIN" val={exp.vin} />
-        <Row label="Placas" val={exp.placas} />
-        <Row label="Color" val={exp.color} />
-        <Row label="Masa total" val="1,360 kg" />
-        <Row label="Ocupantes" val="1 conductor" />
-      </div>
-      <div>
-        <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">Resultados de Velocidad</div>
-        <Row label="Vel. pre-impacto" val={exp.velocidad} />
-        <Row label="Límite permitido" val={exp.limite} />
-        <Row label="Exceso" val={exp.exceso} highlight />
-        <Row label="Δv (delta)" val={exp.delta} />
-        <Row label="EBS" val="53.6 km/h" />
-        <Row label="Verificación Limpert" val="84.3 km/h" />
-        <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded flex items-center gap-2">
-          <AlertTriangle size={14} className="text-red-500" />
-          <span className="text-xs text-red-700">Exceso de velocidad confirmado</span>
+        <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">
+          Datos del Incidente
         </div>
+        <Row label="No. Expediente" val={exp.numero_siniestro} />
+        <Row label="Fecha"          val={exp.fecha_hecho} />
+        <Row label="Hora"           val={exp.hora_hecho} />
+        <Row label="Tipo de hecho"  val={exp.tipo_hecho} />
+        <Row label="Estado"         val={exp.estado_label} />
+        <Row label="Lugar"          val={exp.lugar} />
+      </div>
+      <div>
+        <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">
+          Vehículo
+        </div>
+        <Row label="Vehículo"  val={exp.vehiculo_str} />
+        <Row label="VIN"       val={exp.vin} />
+        <Row label="Placas"    val={exp.placas} />
+        <Row label="Color"     val={exp.color} />
+        <Row label="Vel. límite" val={exp.velocidad_limite} />
+        <Row label="Objeto involucrado" val={exp.objeto_involucrado} />
+      </div>
+      <div>
+        <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">
+          Resultados
+        </div>
+        <Row label="Vel. pre-impacto"  val={exp.velocidad_preimpacto} />
+        <Row label="Vel. impacto"      val={exp.velocidad_impacto} />
+        <Row label="Exceso"            val={exp.exceso} highlight={exp.hay_exceso} />
+        <Row label="Δv (delta)"        val={exp.delta_v} />
+
+        {exp.hay_exceso && (
+          <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+            <AlertTriangle size={14} className="text-red-500 shrink-0" />
+            <span className="text-xs text-red-700">Exceso de velocidad confirmado</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 function TabVehiculo({ exp }) {
-  const fields = [
-    ["Marca", "Toyota"], ["Modelo", "Corolla"], ["Año", "2019"],
-    ["Color", "Blanco"], ["Placas", exp.placas], ["VIN", exp.vin],
-    ["Peso Tara", "1,285 kg"], ["MMA", "1,750 kg"], ["Ancho", "1,780 mm"],
-    ["Largo", "4,630 mm"], ["Alto", "1,430 mm"], ["Batalla", "2,700 mm"],
-    ["Voladizo anterior", "890 mm"], ["Voladizo posterior", "1,040 mm"],
-    ["Entrevía delantera", "1,520 mm"], ["Entrevía trasera", "1,510 mm"],
-  ];
-
+  const iv  = exp.raw.vehiculos?.[0];
+  const veh = iv?.vehiculo;
+  if (!veh) {
+    return <div className="text-xs text-gray-400 py-6 text-center">Sin vehículo registrado (completa el Paso 2 del wizard).</div>;
+  }
   return (
-    <div className="grid grid-cols-4 gap-x-6 gap-y-2">
-      {fields.map(([l, v]) => <Row key={l} label={l} val={v} />)}
+    <div className="grid grid-cols-3 gap-x-6">
+      <div>
+        <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Identificación</div>
+        <Row label="Marca"       val={veh.marca} />
+        <Row label="Submarca"    val={veh.submarca} />
+        <Row label="Año modelo"  val={veh.anio_modelo} />
+        <Row label="VIN"         val={veh.vin} />
+        <Row label="Placas"      val={iv.numero_placas} />
+        <Row label="Color"       val={iv.color?.nombre} />
+      </div>
+      <div>
+        <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Dimensiones</div>
+        <Row label="Peso tara (kg)"  val={veh.peso_tara_kg} />
+        <Row label="MMA (kg)"        val={veh.masa_maxima_autorizada_kg} />
+        <Row label="Ancho (mm)"      val={veh.ancho_mm} />
+        <Row label="Largo (mm)"      val={veh.largo_mm} />
+        <Row label="Alto (mm)"       val={veh.alto_mm} />
+        <Row label="Batalla (mm)"    val={veh.batalla_mm} />
+      </div>
+      <div>
+        <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Estado</div>
+        <Row label="Estado neumático" val={iv.estadoNeumatico?.nombre} />
+        <Row label="Rol en siniestro" val={iv.rol} />
+        <Row label="Tipo vehículo"    val={veh.tipo_vehiculo} />
+      </div>
     </div>
   );
 }
 
-function TabEvidencia() {
-  const cats = ["Frontal", "Lateral Derecho", "Lateral Izquierdo", "Posterior", "Partes Bajas", "Habitáculo", "Lugar de Hechos", "Objeto Involucrado"];
-  const counts = [3, 4, 3, 2, 1, 2, 5, 2];
-
+function TabEvidencia({ exp }) {
+  const fotos = exp.fotos;
   return (
-    <div className="grid grid-cols-4 gap-4">
-      {cats.map((cat, i) => (
-        <div key={cat} className="border border-gray-200 rounded p-2">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-600">{cat}</span>
-            <span className="text-xs bg-[#E0F7FA] text-[#00ADCF] px-1.5 rounded-full">{counts[i]}</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1">
-            {Array.from({ length: Math.min(counts[i], 3) }).map((_, j) => (
-              <div key={j} className="aspect-square bg-gray-100 rounded flex items-center justify-center text-gray-300">
-                <Camera size={14} />
+    <div>
+      <div className="text-xs text-gray-600 mb-3">
+        {fotos.length} foto(s) registrada(s)
+      </div>
+      {fotos.length === 0 ? (
+        <div className="text-xs text-gray-400 text-center py-8">
+          Sin evidencias fotográficas registradas (completa el Paso 5 del wizard).
+        </div>
+      ) : (
+        <div className="grid grid-cols-6 gap-3">
+          {fotos.map((foto, i) => (
+            <div key={foto.id ?? i} className="flex flex-col gap-1">
+              <div className="aspect-square bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden">
+                {foto.url
+                  ? <img src={foto.url} alt={foto.descripcion ?? ""} className="w-full h-full object-cover" />
+                  : <Camera size={20} className="text-gray-300" />}
               </div>
-            ))}
+              <span className="text-[10px] text-gray-500 truncate">{foto.tipoFoto?.nombre ?? `Foto ${i + 1}`}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabDeformacion({ exp }) {
+  const dm = exp.raw.vehiculos?.[0]?.deformacionMedicion;
+  if (!dm) {
+    return <div className="text-xs text-gray-400 text-center py-8">Sin mediciones de deformación registradas.</div>;
+  }
+  return (
+    <div className="grid grid-cols-2 gap-6">
+      <div>
+        <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Parámetros</div>
+        <Row label="Tipo de golpe"    val={dm.tipoGolpe?.nombre} />
+        <Row label="Línea referencia" val={dm.linea_referencia_mm ? `${dm.linea_referencia_mm} mm` : null} />
+        <Row label="Ancho contacto L" val={dm.l_ancho_contacto_m ? `${dm.l_ancho_contacto_m} m` : null} />
+        <Row label="Ángulo FPI"       val={dm.angulo_fpi_grados ? `${dm.angulo_fpi_grados}°` : null} />
+      </div>
+      <div>
+        <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Mediciones C (m)</div>
+        {["c1_m","c2_m","c3_m","c4_m","c5_m","c6_m"].map((k, i) =>
+          dm[k] != null ? <Row key={k} label={`C${i+1}`} val={`${dm[k]} m`} /> : null
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TabCalculos({ exp }) {
+  const cal = exp.raw.vehiculos?.[0]?.calculoVelocidad;
+  if (!cal) {
+    return <div className="text-xs text-gray-400 text-center py-8">Sin cálculos de velocidad registrados.</div>;
+  }
+  const rows = [
+    ["Coef. A (N/m)",          cal.a_rigidez_n_m],
+    ["Coef. B (N/m²)",         cal.b_rigidez_n_m2],
+    ["Dmed (m)",               cal.dmed_m],
+    ["E deformación (J)",      cal.e_deformacion_julios],
+    ["E corregida (J)",        cal.e_def_corregida_julios],
+    ["EBS (m/s)",              cal.ebs_m_s],
+    ["Vel. impacto (km/h)",    cal.velocidad_impacto_kmh],
+    ["Vel. pre-impacto (km/h)",cal.velocidad_pre_impacto_kmh],
+    ["Vel. final (km/h)",      cal.velocidad_final_kmh],
+    ["Vel. Limpert (km/h)",    cal.velocidad_limpert_kmh],
+    ["Exceso (km/h)",          cal.delta_exceso_kmh],
+    ["Margen error (km/h)",    cal.margen_error_kmh],
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        {rows.slice(0, 6).map(([l, v]) => <Row key={l} label={l} val={v} />)}
+      </div>
+      <div>
+        {rows.slice(6).map(([l, v]) => <Row key={l} label={l} val={v} />)}
+        {cal.exceso_velocidad === 1 && (
+          <div className="mt-3 p-3 border rounded" style={{ borderColor: "#00ADCF", backgroundColor: "#E0F7FA" }}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} className="text-red-500" />
+              <span className="text-red-600 font-semibold text-sm">EXCESO DETECTADO</span>
+              <span className="text-xs text-red-500">+{cal.delta_exceso_kmh} km/h</span>
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TabDeformacion() {
-  const mediciones = [
-    { label: "C1", val: "285.0 mm" }, { label: "C2", val: "320.5 mm" },
-    { label: "C3", val: "344.0 mm" }, { label: "C4", val: "338.0 mm" },
-    { label: "C5", val: "305.0 mm" }, { label: "C6", val: "274.5 mm" },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 gap-6">
-      <div>
-        <div className="text-xs font-medium text-gray-700 mb-2">Mediciones C1–C6 (Frontal, 6 puntos)</div>
-        <div className="grid grid-cols-2 gap-3">
-          {mediciones.map((m) => (
-            <div key={m.label} className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
-              <div className="text-xs text-gray-500">{m.label}</div>
-              <div className="text-sm font-semibold text-gray-700">{m.val}</div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {[["Ancho de contacto L", "1,640 mm"], ["Ángulo FPI", "18°"], ["Arqueamiento", "12.0 mm"], ["Dmed", "311.2 mm"]].map(([l, v]) => (
-            <div key={l} className="bg-[#E0F7FA] border border-[#00ADCF]/30 rounded px-3 py-2">
-              <div className="text-xs text-gray-500">{l}</div>
-              <div className="text-sm font-semibold" style={{ color: "#00ADCF" }}>{v}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-col items-center">
-        <div className="text-xs text-gray-500 mb-2">Diagrama de deformación frontal</div>
-        <svg width="200" height="140" viewBox="0 0 200 140">
-          <rect x="10" y="20" width="180" height="110" rx="8" stroke="#9CA3AF" strokeWidth="2" fill="#F9FAFB" />
-          <path d="M10,30 Q30,20 50,25 Q70,15 90,22 Q110,15 130,22 Q150,20 170,25 Q190,30 190,35" stroke="#EF4444" strokeWidth="2.5" fill="none" />
-          {[285, 320.5, 344, 338, 305, 274.5].map((v, i) => {
-            const x = 20 + i * 32;
-            const h = (v / 380) * 80;
-            return (
-              <g key={i}>
-                <rect x={x - 8} y={30} width={16} height={h} fill="#FCA5A5" opacity="0.6" />
-                <circle cx={x} cy={30 + h} r={4} fill="#EF4444" />
-                <text x={x} y={135} textAnchor="middle" fontSize="9" fill="#374151">C{i + 1}</text>
-              </g>
-            );
-          })}
-        </svg>
+        )}
       </div>
     </div>
   );
 }
 
-function TabCalculos() {
-  const resultados = [
-    ["Energía de deformación Ed", "48.72 kJ"],
-    ["Energía corregida (ángulo 18°)", "46.30 kJ"],
-    ["EBS", "53.6 km/h"],
-    ["Velocidad de impacto Vi", "76.4 km/h"],
-    ["Velocidad pre-impacto Vpre", "87.1 km/h"],
-    ["Velocidad final post-impacto", "12.0 km/h"],
-    ["Δv (delta)", "75.1 km/h"],
-    ["Verificación Limpert", "84.3 km/h"],
-    ["Límite permitido", "80.0 km/h"],
-    ["Exceso de velocidad", "+7.1 km/h"],
-  ];
-
-  return (
-    <div className="grid grid-cols-2 gap-6">
-      <div>
-        <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Parámetros McHenry</div>
-        {[["Categoría", "NASS-2"], ["Coeficiente A", "33.58 N/m"], ["Coeficiente B", "6.84 N/m²"], ["Dmed", "311.2 mm"], ["μ corregido", "0.71"], ["Tiempo reacción", "0.75 s"], ["Distancia frenado", "18.5 m"]].map(([l, v]) => (
-          <Row key={l} label={l} val={v} />
-        ))}
-      </div>
-      <div>
-        <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1 flex items-center gap-2">
-          Resultados <span className="text-xs bg-green-100 text-green-700 px-1.5 rounded">Calculados</span>
-        </div>
-        {resultados.map(([l, v]) => (
-          <Row key={l} label={l} val={v} highlight={l === "Exceso de velocidad"} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TabNarrativa() {
+function TabNarrativa({ exp }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <div className="text-xs font-medium text-gray-700 mb-2">Datos de la Dinámica</div>
-        <div className="grid grid-cols-3 gap-3">
-          {[["Objeto involucrado", "Barra contención Jersey"], ["Posición final", "Carril derecho, orientación N-S"], ["Dirección circulación", "Norte"], ["Distancia PPR al PC", "28.3 m"], ["Tiempo reacción", "0.75 s"], ["Huellas de derrape", "18.5 m"]].map(([l, v]) => (
-            <div key={l} className="bg-gray-50 border border-gray-100 rounded px-3 py-2">
-              <div className="text-xs text-gray-400">{l}</div>
-              <div className="text-xs text-gray-700 font-medium">{v}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div>
         <div className="text-xs font-medium text-gray-700 mb-2">Narrativa Técnica del Hecho</div>
         <div className="bg-gray-50 border border-gray-200 rounded p-4 text-xs text-gray-700 leading-6">
-          Con base en el análisis de las evidencias fotográficas, mediciones de deformación y cálculos realizados conforme a la metodología McHenry, se determina que el vehículo Toyota Corolla con placas ABD-123-4 circulaba en dirección norte por la Autopista México-Querétaro a una velocidad estimada de 87.1 km/h, superior al límite permitido de 80 km/h, cuando colisionó frontalmente contra la barra de contención metálica tipo Jersey. Las huellas de frenado de 18.5 m indican maniobra de emergencia previa al impacto.
+          {exp.narracion}
         </div>
       </div>
+      {(exp.principio_intercambio !== "—" || exp.principio_correspondencia !== "—") && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-xs font-medium text-gray-700 mb-1">Principio de Intercambio de Materiales</div>
+            <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700 leading-5">
+              {exp.principio_intercambio}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-gray-700 mb-1">Principio de Correspondencia</div>
+            <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700 leading-5">
+              {exp.principio_correspondencia}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function TabReporte() {
+function TabReporte({ exp }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 text-xs">
-          <CheckCircle size={14} /> Conclusiones validadas por perito responsable
+          <CheckCircle size={14} /> Expediente cargado correctamente
         </div>
         <div className="ml-auto flex gap-2">
           <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]">
@@ -240,93 +333,115 @@ function TabReporte() {
         </div>
       </div>
       <div className="border border-gray-300 rounded bg-white h-80 flex items-center justify-center text-xs text-gray-400">
-        Vista previa del reporte pericial – RAT-2026-024.pdf
+        Vista previa del reporte pericial – {exp.numero_siniestro}.pdf
       </div>
     </div>
   );
 }
 
+// ── Componente principal ──────────────────────────────────────────────────────
 export default function DetalleExpediente() {
-  const { id } = useParams();
+  const { id: uuid } = useParams(); // la ruta es /expedientes/:id pero el valor es un uuid
   const navigate = useNavigate();
   const [tab, setTab] = useState("resumen");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [expediente, setExpediente] = useState(null);
 
-  const expediente = {
-    id: id || "RAT-2026-024",
-    fecha: "08/03/2026",
-    hora: "14:30",
-    tipo: "Colisión frontal",
-    estado: "Abierto",
-    perito: "Ing. Carlos Méndez",
-    vehiculo: "Toyota Corolla 2019",
-    vin: "3VWFE21C04M000001",
-    placas: "ABD-123-4",
-    color: "Blanco",
-    velocidad: "87.1 km/h",
-    limite: "80 km/h",
-    exceso: "+7.1 km/h",
-    delta: "75.1 km/h",
-    lugar: "Autopista México-Querétaro, Km 14+500, Tepotzotlán, Estado de México",
-    mu: "0.71",
-  };
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await getIncidenteById(uuid);
+        if (!active) return;
+        setExpediente(normalizeExp(response?.data || response));
+      } catch (err) {
+        if (!active) return;
+        setError(err?.response?.data?.message || err?.message || "No se pudo cargar el expediente");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, [uuid]);
+
+  const content = useMemo(() => {
+    if (!expediente) return null;
+    switch (tab) {
+      case "resumen":     return <TabResumen     exp={expediente} />;
+      case "vehiculo":    return <TabVehiculo    exp={expediente} />;
+      case "evidencia":   return <TabEvidencia   exp={expediente} />;
+      case "deformacion": return <TabDeformacion exp={expediente} />;
+      case "calculos":    return <TabCalculos    exp={expediente} />;
+      case "narrativa":   return <TabNarrativa   exp={expediente} />;
+      case "reporte":     return <TabReporte     exp={expediente} />;
+      default: return null;
+    }
+  }, [expediente, tab]);
 
   return (
     <div className="p-4 flex flex-col gap-4">
-      <div className="bg-white border border-gray-200 rounded shadow-sm p-3 flex items-center gap-3">
-        <button onClick={() => navigate("/expedientes")} className="p-1.5 rounded border border-gray-300 text-gray-600 hover:border-[#00ADCF] hover:text-[#00ADCF]">
-          <ArrowLeft size={15} />
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate("/expedientes")}
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]"
+        >
+          <ArrowLeft size={13} /> Volver
         </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-800">{expediente.id}</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{expediente.estado}</span>
-            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <AlertTriangle size={11} /> Exceso de velocidad
+        <div>
+          <div className="text-sm text-gray-800">Detalle de expediente</div>
+          <div className="text-xs text-gray-400">{uuid}</div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="bg-white border border-gray-200 rounded shadow-sm p-8 text-center text-sm text-gray-500">
+          Cargando expediente...
+        </div>
+      ) : error ? (
+        <div className="bg-white border border-gray-200 rounded shadow-sm p-8 text-center text-sm text-red-600">
+          {error}
+        </div>
+      ) : expediente ? (
+        <>
+          {/* Header del expediente */}
+          <div className="bg-white border border-gray-200 rounded shadow-sm p-4 flex items-center justify-between">
+            <div>
+              <div className="text-base font-medium text-gray-800">{expediente.numero_siniestro}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {expediente.tipo_hecho} · {expediente.fecha_hecho}
+              </div>
+            </div>
+            <span className={`text-xs px-3 py-1 rounded-full font-medium ${expediente.estado_badge}`}>
+              {expediente.estado_label}
             </span>
           </div>
-          <div className="text-xs text-gray-500 mt-0.5">
-            {expediente.tipo} · {expediente.fecha} {expediente.hora} · {expediente.perito}
+
+          {/* Tabs */}
+          <div className="bg-white border border-gray-200 rounded shadow-sm">
+            <div className="flex border-b border-gray-200 overflow-x-auto">
+              {TABS.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setTab(item.id)}
+                  className={`px-4 py-2.5 text-xs border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                    tab === item.id
+                      ? "border-[#00ADCF] text-[#00ADCF]"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="p-4">{content}</div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]">
-            <Edit2 size={13} /> Editar
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]">
-            <Download size={13} /> PDF
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs" style={{ backgroundColor: "#00ADCF" }}>
-            <Send size={13} /> Enviar a revisión
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded shadow-sm">
-        <div className="flex border-b border-gray-200">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs border-b-2 transition-colors ${
-                tab === t.id ? "border-[#00ADCF] text-[#00ADCF]" : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {t.icon}
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="p-4">
-          {tab === "resumen" && <TabResumen exp={expediente} />}
-          {tab === "vehiculo" && <TabVehiculo exp={expediente} />}
-          {tab === "evidencia" && <TabEvidencia />}
-          {tab === "deformacion" && <TabDeformacion />}
-          {tab === "calculos" && <TabCalculos />}
-          {tab === "narrativa" && <TabNarrativa />}
-          {tab === "reporte" && <TabReporte />}
-        </div>
-      </div>
+        </>
+      ) : null}
     </div>
   );
 }
