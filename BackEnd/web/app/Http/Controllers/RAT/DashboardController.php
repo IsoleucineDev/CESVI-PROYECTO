@@ -25,6 +25,7 @@ class DashboardController extends Controller
         $this->middleware('auth:api');
     }
     
+
     public function index(): JsonResponse
     {
         // ── Contadores por estado ─────────────────────────────────────────────
