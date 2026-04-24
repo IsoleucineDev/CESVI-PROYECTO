@@ -19,6 +19,12 @@ class DashboardController extends Controller
      *  - Expedientes recientes (últimos 5)
      *  - Resumen del mes actual
      */
+
+    public function __construct()
+    {
+        $this->middleware('auth:api');
+    }
+    
     public function index(): JsonResponse
     {
         // ── Contadores por estado ─────────────────────────────────────────────
