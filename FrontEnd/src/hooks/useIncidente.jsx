@@ -1,21 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSiniestroById } from "../services/siniestroService";
+import { getIncidenteById } from "../services/incidenteService";
 
-export function useSiniestro(id) {
+export function useIncidente(id) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [siniestro, setSiniestro] = useState(null);
+  const [incidente, setIncidente] = useState(null);
 
   const load = useCallback(async () => {
     if (!id) return;
-
     setLoading(true);
     setError("");
-
     try {
-      const data = await getSiniestroById(id);
+      const data = await getIncidenteById(id);
       const payload = data?.data || data;
-      setSiniestro(payload);
+      setIncidente(payload);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "Error al cargar expediente");
     } finally {
@@ -27,5 +25,5 @@ export function useSiniestro(id) {
     load();
   }, [load]);
 
-  return { siniestro, loading, error, load, setSiniestro };
+  return { incidente, loading, error, load, setIncidente };
 }
