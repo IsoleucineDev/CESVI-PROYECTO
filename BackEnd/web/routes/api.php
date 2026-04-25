@@ -18,8 +18,9 @@ Route::prefix('v1/rat/auth')->group(function () {
     Route::get('/me',      [AuthController::class, 'me'])->middleware('auth:api');
 });
 
-// ── Descarga pública de reportes (sin token) ──────────────────────────────────
+// ── Recursos públicos (sin token) ─────────────────────────────────────────────
 Route::get('/v1/rat/reportes/{uuid}/descargar', [ReporteController::class, 'descargar']);
+Route::get('/v1/rat/fotos/{id}',                [ExpedienteWizardController::class, 'servirFoto']);
 
 // ── Rutas protegidas RAT ──────────────────────────────────────────────────────
 Route::prefix('v1/rat')->middleware('auth:api')->group(function () {

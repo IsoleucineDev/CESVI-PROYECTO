@@ -13,6 +13,16 @@ export async function generarReporte(uuid) {
   return data;
 }
 
-export function getUrlDescarga(uuid) {
-  return `${http.defaults.baseURL}${R}/${uuid}/descargar`;
+export async function descargarReporte(uuid, nombreArchivo = "reporte.docx") {
+  const response = await http.get(`${R}/${uuid}/descargar`, {
+    responseType: "blob",
+  });
+  const url = URL.createObjectURL(response.data);
+  const a   = document.createElement("a");
+  a.href     = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

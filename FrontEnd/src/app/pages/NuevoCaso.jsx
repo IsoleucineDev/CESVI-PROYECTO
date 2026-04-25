@@ -1,8 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Check, ChevronLeft, ChevronRight,
-  Upload, X, AlertCircle, FileText,
+  Upload, X, AlertCircle, FileText, Trash2, ImageIcon,
 } from "lucide-react";
 import {
   createIncidentePaso1,
@@ -18,6 +18,8 @@ import {
 } from "../../services/incidenteService";
 import { getCatalogos, getPeritos } from "../../services/catalogosService";
 import { useAuth } from "../../hooks/useAuth";
+import { http } from "../../api/http";
+import { API_URL } from "../../config/env";
 
 // ── Contexto: form + catálogos disponibles en todos los pasos ─────────────────
 const FormCtx = createContext(null);
@@ -35,8 +37,8 @@ const STEPS = [
   { id: 8, label: "Reporte" },
 ];
 
-const inp = "w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]";
-const sel = "w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white";
+const inp = "w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white text-gray-800 placeholder:text-sky-300 placeholder:italic";
+const sel = "w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] bg-white text-gray-800";
 
 function Field({ label, req, children }) {
   return (
@@ -125,15 +127,15 @@ function StepVehiculo() {
         </Field>
       </div>
       <Field label="Marca" req>
-        <input className={inp} placeholder="Volkswagen"
+        <input className={inp} placeholder="Por llenar"
           value={f("marca")} onChange={(e) => setField("marca", e.target.value)} />
       </Field>
       <Field label="Submarca">
-        <input className={inp} placeholder="Jetta"
+        <input className={inp} placeholder="Por llenar"
           value={f("submarca")} onChange={(e) => setField("submarca", e.target.value)} />
       </Field>
       <Field label="Año" req>
-        <input type="number" className={inp} placeholder="2020"
+        <input type="number" className={inp} placeholder="Por llenar"
           value={f("anio_modelo")} onChange={(e) => setField("anio_modelo", e.target.value)} />
       </Field>
       <Field label="Tipo de Vehículo" req>
@@ -146,7 +148,7 @@ function StepVehiculo() {
       </Field>
       <CatSel field="color_id" label="Color" items={cats?.colores} />
       <Field label="Placas">
-        <input className={inp} placeholder="ABC-123-4"
+        <input className={inp} placeholder="Por llenar"
           value={f("numero_placas")} onChange={(e) => setField("numero_placas", e.target.value)} />
       </Field>
       <Field label="Rol" req>
@@ -159,11 +161,11 @@ function StepVehiculo() {
       </Field>
       <CatSel field="estado_neumatico_id" label="Estado Neumático" items={cats?.estados_neumatico} />
       <Field label="Peso Tara (kg)">
-        <input type="number" className={inp} placeholder="1285"
+        <input type="number" className={inp} placeholder="Por llenar"
           value={f("peso_tara_kg")} onChange={(e) => setField("peso_tara_kg", e.target.value)} />
       </Field>
       <Field label="MMA (kg)">
-        <input type="number" className={inp} placeholder="1750"
+        <input type="number" className={inp} placeholder="Por llenar"
           value={f("masa_maxima_autorizada_kg")} onChange={(e) => setField("masa_maxima_autorizada_kg", e.target.value)} />
       </Field>
       <Field label="Ancho (mm)">
@@ -258,19 +260,19 @@ function StepVia() {
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label="Km / Punto de Referencia">
-        <input className={inp} placeholder="Km 14+500"
+        <input className={inp} placeholder="Por llenar"
           value={f("km_punto")} onChange={(e) => setField("km_punto", e.target.value)} />
       </Field>
       <Field label="Municipio / Estado" req>
-        <input className={inp} placeholder="Toluca, Estado de México"
+        <input className={inp} placeholder="Por llenar"
           value={f("municipio")} onChange={(e) => setField("municipio", e.target.value)} />
       </Field>
       <Field label="Calle / Referencia">
-        <input className={inp} placeholder="Av. Principal s/n"
+        <input className={inp} placeholder="Por llenar"
           value={f("calle")} onChange={(e) => setField("calle", e.target.value)} />
       </Field>
       <Field label="Velocidad Máxima Permitida (km/h)" req>
-        <input type="number" className={inp} placeholder="80"
+        <input type="number" className={inp} placeholder="Por llenar"
           value={f("velocidad_maxima_permitida_kmh")}
           onChange={(e) => setField("velocidad_maxima_permitida_kmh", e.target.value)} />
       </Field>
@@ -283,11 +285,11 @@ function StepVia() {
       <CatSel field="orientacion_id"          label="Orientación de Vía"      items={cats?.orientaciones_via} />
       <CatSel field="sentido_vialidad_id"     label="Sentido de Vialidad"     items={cats?.sentidos_vialidad} />
       <Field label="Lat">
-        <input type="number" step="0.000001" className={inp} placeholder="19.4326"
+        <input type="number" step="0.000001" className={inp} placeholder="Por llenar"
           value={f("lat")} onChange={(e) => setField("lat", e.target.value)} />
       </Field>
       <Field label="Lng">
-        <input type="number" step="0.000001" className={inp} placeholder="-99.1332"
+        <input type="number" step="0.000001" className={inp} placeholder="Por llenar"
           value={f("lng")} onChange={(e) => setField("lng", e.target.value)} />
       </Field>
     </div>
@@ -295,60 +297,172 @@ function StepVia() {
 }
 
 // ── PASO 4: Evidencia ─────────────────────────────────────────────────────────
-const CATEGORIAS_FOTO = [
-  "Frontal", "Lateral Derecho", "Lateral Izquierdo", "Posterior",
-  "Partes Bajas", "Habitáculo", "Lugar de Hechos", "Objeto Involucrado",
-];
+const GRUPO_SIZE = 10;
+
+function FotoCard({ foto, tipoNombre, onDelete }) {
+  const [err, setErr] = useState(false);
+  return (
+    <div className="relative group rounded border border-gray-200 overflow-hidden bg-gray-50">
+      {err ? (
+        <div className="w-full h-28 flex flex-col items-center justify-center text-gray-300 gap-1">
+          <ImageIcon size={22} />
+          <span className="text-xs">Sin vista previa</span>
+        </div>
+      ) : (
+        <img src={foto.previewUrl} alt="" className="w-full h-28 object-cover"
+          onError={() => setErr(true)} />
+      )}
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        <button onClick={() => onDelete(foto)}
+          className="bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600">
+          <Trash2 size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GrupoFotos({ tipo, fotos, onDelete }) {
+  const [visibles, setVisibles] = useState(GRUPO_SIZE);
+  const mostrar = fotos.slice(0, visibles);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide"
+          style={{ color: "#1F6AA5" }}>{tipo.nombre}</span>
+        <span className="text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{fotos.length}</span>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+      <div className="grid grid-cols-5 gap-2">
+        {mostrar.map((foto) => (
+          <FotoCard key={foto.id} foto={foto} tipoNombre={tipo.nombre} onDelete={onDelete} />
+        ))}
+      </div>
+      {visibles < fotos.length && (
+        <button onClick={() => setVisibles((v) => v + GRUPO_SIZE)}
+          className="self-start text-xs px-3 py-1 border border-gray-300 rounded text-gray-500 hover:border-[#00ADCF] hover:text-[#00ADCF] transition-colors">
+          Cargar más ({fotos.length - visibles} restantes)
+        </button>
+      )}
+    </div>
+  );
+}
 
 function StepEvidencia() {
-  const [uploaded, setUploaded] = useState({});
-  const completitud = Object.keys(uploaded).filter((k) => uploaded[k]?.length > 0).length;
-  const handleFile  = (cat, e) => {
-    const files = Array.from(e.target.files).map((f) => f.name);
-    setUploaded((prev) => ({ ...prev, [cat]: [...(prev[cat] || []), ...files] }));
+  const { cats, incidenteUuid, fotos, setFotos } = useForm();
+  const [tipoSeleccionado, setTipoSeleccionado] = useState("");
+  const [uploading, setUploading]               = useState(false);
+  const [uploadError, setUploadError]           = useState("");
+  const fileInputRef                            = useRef(null);
+  const tiposFoto = cats?.tipos_foto ?? [];
+
+  // Agrupar fotos por tipo, en el orden del catálogo
+  const fotosPorTipo = {};
+  for (const foto of fotos) {
+    const k = String(foto.tipo_foto_id);
+    if (!fotosPorTipo[k]) fotosPorTipo[k] = [];
+    fotosPorTipo[k].push(foto);
+  }
+  const tiposConFotos = tiposFoto.filter((t) => fotosPorTipo[String(t.id)]?.length > 0);
+
+  const handleUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    if (!incidenteUuid) { setUploadError("Guarda primero el Paso 1 (Incidente)."); return; }
+    if (!tipoSeleccionado) { setUploadError("Selecciona el tipo de foto antes de subir."); return; }
+
+    setUploading(true);
+    setUploadError("");
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("tipo_foto_id", tipoSeleccionado);
+      fd.append("foto", file);
+      try {
+        const { data } = await http.post(
+          `/v1/rat/wizard/${incidenteUuid}/paso5-evidencia`,
+          fd,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        const previewUrl = URL.createObjectURL(file);
+        setFotos((prev) => [
+          ...prev,
+          { id: data.foto_id, tipo_foto_id: tipoSeleccionado, previewUrl, url: data.url },
+        ]);
+      } catch (err) {
+        setUploadError(err?.response?.data?.message ?? "Error al subir foto.");
+        break;
+      }
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const handleDelete = async (foto) => {
+    if (!incidenteUuid) return;
+    try {
+      await http.delete(`/v1/rat/wizard/${incidenteUuid}/paso5-evidencia/${foto.id}`);
+      setFotos((prev) => prev.filter((f) => f.id !== foto.id));
+    } catch (err) {
+      setUploadError("Error al eliminar foto.");
+    }
+  };
+
   return (
-    <div>
-      <div className="mb-3 flex items-center gap-3">
-        <div className="flex-1 bg-gray-200 rounded-full h-2">
-          <div className="h-2 rounded-full transition-all"
-            style={{ width: `${(completitud / CATEGORIAS_FOTO.length) * 100}%`, backgroundColor: "#00ADCF" }} />
+    <div className="flex flex-col gap-4">
+      {/* Barra de carga */}
+      <div className="flex gap-3 items-end bg-gray-50 border border-gray-200 rounded p-3">
+        <div className="flex-1">
+          <label className="block text-xs text-gray-600 mb-1">
+            Tipo de Foto <span className="text-red-500">*</span>
+          </label>
+          <select className={sel} value={tipoSeleccionado}
+            onChange={(e) => { setTipoSeleccionado(e.target.value); setUploadError(""); }}>
+            <option value="">Seleccionar tipo...</option>
+            {tiposFoto.map((t) => (
+              <option key={t.id} value={t.id}>{t.nombre}</option>
+            ))}
+          </select>
         </div>
-        <span className="text-xs text-gray-500">{completitud}/{CATEGORIAS_FOTO.length} categorías</span>
+        <label className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded text-xs text-white transition-opacity
+          ${(!tipoSeleccionado || uploading) ? "opacity-40 pointer-events-none" : ""}`}
+          style={{ backgroundColor: "#00ADCF" }}>
+          <Upload size={13} />
+          {uploading ? "Subiendo…" : "Seleccionar fotos"}
+          <input ref={fileInputRef} type="file" className="hidden" multiple
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            onChange={handleUpload} disabled={!tipoSeleccionado || uploading} />
+        </label>
       </div>
-      <div className="grid grid-cols-4 gap-3">
-        {CATEGORIAS_FOTO.map((cat) => {
-          const files = uploaded[cat] || [];
-          return (
-            <div key={cat}>
-              <div className="text-xs text-gray-600 mb-1 flex items-center gap-1">
-                {cat}
-                {files.length > 0 && (
-                  <span className="text-xs bg-green-100 text-green-700 rounded-full px-1.5">{files.length}</span>
-                )}
-              </div>
-              <label className="border-2 border-dashed border-gray-300 rounded p-3 text-center hover:border-[#00ADCF] cursor-pointer min-h-[80px] flex flex-col items-center justify-center gap-1 block">
-                <Upload size={16} className="text-gray-400" />
-                <span className="text-xs text-gray-400">Arrastrar o clic</span>
-                <input type="file" className="hidden" multiple accept="image/*"
-                  onChange={(e) => handleFile(cat, e)} />
-              </label>
-              {files.map((f, i) => (
-                <div key={i} className="mt-1 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1 flex items-center gap-1">
-                  <FileText size={11} />
-                  <span className="truncate flex-1">{f}</span>
-                  <button onClick={() => setUploaded((prev) => ({ ...prev, [cat]: prev[cat].filter((_, j) => j !== i) }))}
-                    className="text-gray-300 hover:text-red-400"><X size={11} /></button>
-                </div>
-              ))}
-            </div>
-          );
-        })}
+
+      {uploadError && (
+        <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+          <AlertCircle size={13} /> {uploadError}
+        </div>
+      )}
+
+      <div className="text-xs text-gray-500">
+        {fotos.length} foto{fotos.length !== 1 ? "s" : ""} — {tiposConFotos.length} tipo{tiposConFotos.length !== 1 ? "s" : ""}
       </div>
-      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800 flex items-start gap-2">
-        <AlertCircle size={14} className="shrink-0 mt-0.5" />
-        <span>Las fotos se suben al servidor en el Paso 5. Aquí selecciona los archivos por categoría.</span>
-      </div>
+
+      {/* Galería agrupada por tipo */}
+      {fotos.length === 0 ? (
+        <div className="border-2 border-dashed border-gray-200 rounded-lg py-12 flex flex-col items-center gap-2 text-gray-400">
+          <ImageIcon size={32} />
+          <span className="text-sm">Sin fotos todavía</span>
+          <span className="text-xs">Selecciona el tipo y sube imágenes arriba</span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {tiposConFotos.map((tipo) => (
+            <GrupoFotos
+              key={tipo.id}
+              tipo={tipo}
+              fotos={fotosPorTipo[String(tipo.id)]}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -356,9 +470,12 @@ function StepEvidencia() {
 // ── PASO 5: Deformación ───────────────────────────────────────────────────────
 function StepDeformacion() {
   const { form, setField, cats } = useForm();
-  const numMed = Number(form.numero_mediciones_id
-    ? (cats?.numeros_mediciones ?? []).find((c) => String(c.id) === String(form.numero_mediciones_id))?.nombre ?? 6
-    : 6);
+  const numMed = parseInt(
+    form.numero_mediciones_id
+      ? (cats?.numeros_mediciones ?? []).find((c) => String(c.id) === String(form.numero_mediciones_id))?.nombre ?? "6"
+      : "6",
+    10
+  );
   const campos  = isNaN(numMed) ? 6 : numMed;
   const cLabels = Array.from({ length: campos }, (_, i) => `C${i + 1}`);
   const dmed = (() => {
@@ -373,7 +490,7 @@ function StepDeformacion() {
         <CatSel field="tipo_golpe_id"       label="Tipo de Golpe"        req items={cats?.tipos_golpe} />
         <CatSel field="numero_mediciones_id" label="Número de Mediciones" req items={cats?.numeros_mediciones} />
         <Field label="Línea de Referencia (mm)">
-          <input type="number" className={inp} placeholder="0"
+          <input type="number" className={inp} placeholder="Por llenar"
             value={form.linea_referencia_mm ?? ""}
             onChange={(e) => setField("linea_referencia_mm", e.target.value)} />
         </Field>
@@ -395,7 +512,7 @@ function StepDeformacion() {
               <input type="number" className={inp}
                 value={form[`medicion_${c}`] ?? ""}
                 onChange={(e) => setField(`medicion_${c}`, e.target.value)}
-                placeholder="0.0" />
+                placeholder="Por llenar" />
             </Field>
           ))}
         </div>
@@ -628,6 +745,7 @@ export default function NuevoCaso() {
   const [cats, setCats]                   = useState(null);
   const [peritos, setPeritos]             = useState([]);
   const [loadingEdit, setLoadingEdit]     = useState(editMode);
+  const [fotos, setFotos]                 = useState([]);
 
   const [form, setFormState] = useState({
     numero_siniestro: "", tipo_hecho_id: "", fecha_hecho: "",
@@ -678,7 +796,7 @@ export default function NuevoCaso() {
           tipo_hecho_id:     inc.tipo_hecho_id ?? "",
           // La API devuelve ISO timestamp; el input type=date necesita yyyy-MM-dd
           fecha_hecho:       inc.fecha_hecho ? String(inc.fecha_hecho).split('T')[0] : "",
-          hora_hecho:        inc.hora_hecho ?? "",
+          hora_hecho:        inc.hora_hecho ? String(inc.hora_hecho).substring(0, 5) : "",
           estado:            inc.estado ?? 0,
           id_usuario_perito: user?.id_user ?? inc.id_usuario_perito ?? "",
           // Paso 1: Vehículo
@@ -732,14 +850,14 @@ export default function NuevoCaso() {
           angulo_fpi_grados:    def.angulo_fpi_grados ?? "",
           linea_referencia_mm:  def.linea_referencia_mm ?? "",
           // Paso 6: Cálculo
-          a_rigidez_n_m:             cal.rigidez_a ?? "",
-          b_rigidez_n_m2:            cal.rigidez_b ?? "",
+          a_rigidez_n_m:             cal.a_rigidez_n_m ?? "",
+          b_rigidez_n_m2:            cal.b_rigidez_n_m2 ?? "",
           dmed_m:                    cal.dmed_m ?? "",
-          tiempo_respuesta_frenos_s: cal.tiempo_reaccion_s ?? "",
+          tiempo_respuesta_frenos_s: cal.tiempo_respuesta_frenos_s ?? "",
           velocidad_final_kmh:       cal.velocidad_final_kmh ?? "",
           e_deformacion_julios:      cal.e_deformacion_julios ?? "",
           e_def_corregida_julios:    cal.e_def_corregida_julios ?? "",
-          ebs_m_s:                   cal.ebs_kmh ?? "",
+          ebs_m_s:                   cal.ebs_m_s ?? "",
           velocidad_impacto_kmh:     cal.velocidad_impacto_kmh ?? "",
           velocidad_pre_impacto_kmh: cal.velocidad_pre_impacto_kmh ?? "",
           velocidad_limpert_kmh:     cal.velocidad_limpert_kmh ?? "",
@@ -756,9 +874,19 @@ export default function NuevoCaso() {
           // Paso 8: Reporte
           principio_intercambio_materiales: pri.principio_intercambio_materiales ?? "",
           principio_correspondencia:        pri.principio_correspondencia ?? "",
-          conclusiones_texto:               pri.conclusiones_texto ?? "",
-          tipo_documento: inc.reporte?.tipo_documento ?? "informe",
+          conclusiones_texto: (pri.conclusiones ?? []).map((c) => c.texto_conclusion).join("\n"),
+          tipo_documento: inc.reportes?.[0]?.tipo_documento ?? "informe",
         }));
+        // Cargar fotos existentes para previsualizarlas
+        const fotosBd = iv.fotos ?? [];
+        if (fotosBd.length > 0) {
+          setFotos(fotosBd.map((f) => ({
+            id:          f.id,
+            tipo_foto_id:f.tipo_foto_id,
+            url:         f.url,
+            previewUrl:  `${API_URL}/v1/rat/fotos/${f.id}`,
+          })));
+        }
       })
       .catch(() => {})
       .finally(() => setLoadingEdit(false));
@@ -858,27 +986,33 @@ export default function NuevoCaso() {
 
       // ── PASO 4: Evidencia ──
       } else if (step === 4) {
-        // TODO: conectar subida real de fotos cuando el servidor tenga almacenamiento configurado
+        // Las fotos se suben inline al seleccionarlas; aquí solo avanzamos
 
       // ── PASO 5: Deformación ──
       } else if (step === 5) {
         if (!form.tipo_golpe_id)        throw new Error("Selecciona el Tipo de Golpe.");
         if (!form.numero_mediciones_id) throw new Error("Selecciona el Número de Mediciones.");
-        if (!form.medicion_C1)          throw new Error("La medición C1 es obligatoria.");
-        if (!form.medicion_C2)          throw new Error("La medición C2 es obligatoria.");
-        if (!form.medicion_C3)          throw new Error("La medición C3 es obligatoria.");
+        const _medNombre = (cats?.numeros_mediciones ?? []).find((c) => String(c.id) === String(form.numero_mediciones_id))?.nombre ?? "6";
+        const _camposReq = isNaN(parseInt(_medNombre, 10)) ? 6 : parseInt(_medNombre, 10);
+        if (!form.medicion_C1) throw new Error("La medición C1 es obligatoria.");
+        if (!form.medicion_C2) throw new Error("La medición C2 es obligatoria.");
+        if (_camposReq >= 3 && !form.medicion_C3) throw new Error("La medición C3 es obligatoria.");
+        if (_camposReq >= 4 && !form.medicion_C4) throw new Error("La medición C4 es obligatoria.");
+        if (_camposReq >= 5 && !form.medicion_C5) throw new Error("La medición C5 es obligatoria.");
+        if (_camposReq >= 6 && !form.medicion_C6) throw new Error("La medición C6 es obligatoria.");
 
         await updatePaso6Deformacion(incidenteUuid, {
           tipo_golpe_id        : Number(form.tipo_golpe_id),
           numero_mediciones_id : Number(form.numero_mediciones_id),
-          c1_m                 : Number(form.medicion_C1),
-          c2_m                 : Number(form.medicion_C2),
-          c3_m                 : Number(form.medicion_C3),
-          c4_m                 : form.medicion_C4 ? Number(form.medicion_C4) : null,
-          c5_m                 : form.medicion_C5 ? Number(form.medicion_C5) : null,
-          c6_m                 : form.medicion_C6 ? Number(form.medicion_C6) : null,
-          l_ancho_contacto_m   : form.l_ancho_contacto_m ? Number(form.l_ancho_contacto_m) : null,
-          angulo_fpi_grados    : form.angulo_fpi_grados  ? Number(form.angulo_fpi_grados) : null,
+          c1_m                 : Number(form.medicion_C1) / 1000,
+          c2_m                 : Number(form.medicion_C2) / 1000,
+          c3_m                 : form.medicion_C3 ? Number(form.medicion_C3) / 1000 : null,
+          c4_m                 : form.medicion_C4 ? Number(form.medicion_C4) / 1000 : null,
+          c5_m                 : form.medicion_C5 ? Number(form.medicion_C5) / 1000 : null,
+          c6_m                 : form.medicion_C6 ? Number(form.medicion_C6) / 1000 : null,
+          l_ancho_contacto_m   : form.l_ancho_contacto_m   ? Number(form.l_ancho_contacto_m) : null,
+          angulo_fpi_grados    : form.angulo_fpi_grados    ? Number(form.angulo_fpi_grados) : null,
+          linea_referencia_mm  : form.linea_referencia_mm  ? Number(form.linea_referencia_mm) : null,
         });
 
       // ── PASO 6: Cálculo ──
@@ -918,6 +1052,7 @@ export default function NuevoCaso() {
         await updatePaso9Reporte(incidenteUuid, {
           principio_intercambio_materiales : form.principio_intercambio_materiales || null,
           principio_correspondencia        : form.principio_correspondencia || null,
+          conclusiones_texto               : form.conclusiones_texto || null,
           tipo_documento                   : form.tipo_documento || "informe",
           accion                           : form.accion || "guardar",
         });
@@ -956,33 +1091,63 @@ export default function NuevoCaso() {
     );
   }
 
+  // ── Indicadores de completitud por paso ─────────────────────────────────────
+  const stepComplete = [
+    !!(form.numero_siniestro && form.tipo_hecho_id && form.fecha_hecho),
+    !!(form.vin && form.marca && form.anio_modelo && form.tipo_vehiculo && form.rol),
+    true,
+    !!(form.municipio && form.velocidad_maxima_permitida_kmh),
+    true,
+    !!(form.tipo_golpe_id && form.numero_mediciones_id && form.medicion_C1 && form.medicion_C2),
+    true,
+    !!(form.objeto_involucrado),
+    true,
+  ];
+
   return (
-    <FormCtx.Provider value={{ form, setField, cats, peritos, user }}>
+    <FormCtx.Provider value={{ form, setField, cats, peritos, user, incidenteUuid, fotos, setFotos }}>
       <div className="p-4 flex flex-col gap-4">
 
         {/* Stepper */}
         <div className="bg-white border border-gray-200 rounded shadow-sm p-3">
           <div className="flex items-center">
-            {STEPS.map((s, i) => (
-              <div key={s.id} className="flex items-center flex-1">
-                <button onClick={() => i <= step && setStep(i)} className="flex flex-col items-center gap-1">
-                  <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors
-                      ${i < step ? "text-white" : i === step ? "text-white ring-2 ring-offset-1" : "bg-gray-100 text-gray-400"}`}
-                    style={{ backgroundColor: i <= step ? "#00ADCF" : undefined }}
+            {STEPS.map((s, i) => {
+              const isCurrent  = i === step;
+              const isDone     = stepComplete[i] && i !== step;
+              const isVisited  = i <= step;
+              return (
+                <div key={s.id} className="flex items-center flex-1">
+                  <button
+                    onClick={() => { setSaveError(""); setStep(i); }}
+                    className="flex flex-col items-center gap-1 group"
+                    title={s.label}
                   >
-                    {i < step ? <Check size={13} /> : i + 1}
-                  </div>
-                  <span className={`text-xs whitespace-nowrap ${i === step ? "text-[#00ADCF] font-medium" : "text-gray-400"}`}>
-                    {s.label}
-                  </span>
-                </button>
-                {i < STEPS.length - 1 && (
-                  <div className="flex-1 h-px mx-2 mt-[-12px]"
-                    style={{ backgroundColor: i < step ? "#00ADCF" : "#E5E7EB" }} />
-                )}
-              </div>
-            ))}
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all
+                      ${isCurrent
+                        ? "text-white ring-2 ring-offset-1 ring-[#00ADCF]"
+                        : isDone
+                          ? "text-white"
+                          : isVisited
+                            ? "text-white"
+                            : "bg-gray-100 text-gray-400 group-hover:bg-gray-200"}`}
+                      style={{
+                        backgroundColor: isCurrent ? "#00ADCF" : isDone ? "#22c55e" : isVisited ? "#00ADCF" : undefined,
+                      }}
+                    >
+                      {isDone ? <Check size={13} /> : i + 1}
+                    </div>
+                    <span className={`text-xs whitespace-nowrap transition-colors
+                      ${isCurrent ? "text-[#00ADCF] font-medium" : isDone ? "text-green-600" : "text-gray-400 group-hover:text-gray-600"}`}>
+                      {s.label}
+                    </span>
+                  </button>
+                  {i < STEPS.length - 1 && (
+                    <div className="flex-1 h-px mx-2 mt-[-12px] transition-colors"
+                      style={{ backgroundColor: stepComplete[i] && i < step ? "#22c55e" : i < step ? "#00ADCF" : "#E5E7EB" }} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -1046,3 +1211,4 @@ export default function NuevoCaso() {
     </FormCtx.Provider>
   );
 }
+ 

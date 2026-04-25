@@ -2,6 +2,9 @@
 
 /** @var \Laravel\Lumen\Routing\Router $router */
 
+// ── Preflight OPTIONS (CORS) ──────────────────────────────────────────────────
+$router->options('/{any:.*}', function () { return response('', 200); });
+
 // ── Health check ──────────────────────────────────────────────────────────────
 $router->get('/web',  function () { return response()->json(['response' => 'TempletDynamiCESVI']); });
 $router->get('/test', function () { return '¡La API está viva!'; });
@@ -78,7 +81,7 @@ $router->group(['prefix' => 'v1/rat', 'middleware' => 'jwt'], function () use ($
     // Catálogos (rutas específicas antes de las paramétricas)
     $router->get('/catalogos/peritos',  'RAT\CatalogoController@peritos');
     $router->get('/catalogos/rigidez',  'RAT\CatalogoController@rigidez');
-    $router->get('/catalogos/mu',       'RAT\CatalogoController@mu');
+    $router->get('/catalogos/ mu',       'RAT\CatalogoController@mu');
     $router->get('/catalogos',          'RAT\CatalogoController@index');
 
     // Perfil (ruta específica antes de la genérica)

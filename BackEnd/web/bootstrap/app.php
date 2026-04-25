@@ -18,6 +18,12 @@ date_default_timezone_set(env('APP_TIMEZONE', 'America/Mexico_City'));
 | application as an "IoC" container and router for this framework.
 |
 */
+if (!function_exists('public_path')) {
+    function public_path($path = '')
+    {
+        return base_path('public' . ($path ? '/' . $path : $path));
+    }
+}
 
 $app = new Laravel\Lumen\Application(
     dirname(__DIR__)

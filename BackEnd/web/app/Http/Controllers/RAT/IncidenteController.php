@@ -92,17 +92,37 @@ class IncidenteController extends Controller
     public function show($uuid)
     {
         $incidente = Incidente::where('uuid', $uuid)
-            ->with(['tipoHecho', 'ubicacionVia', 'vehiculos', 'perito']) 
+            ->with([
+                'tipoHecho',
+                'perito',
+                'ubicacionVia.tipoVia',
+                'ubicacionVia.tipoTrazo',
+                'ubicacionVia.clima',
+                'ubicacionVia.tipoPavimento',
+                'ubicacionVia.condicionSuperficie',
+                'ubicacionVia.condicionPavimento',
+                'ubicacionVia.orientacion',
+                'ubicacionVia.sentidoVialidad',
+                'vehiculos.vehiculo',
+                'vehiculos.color',
+                'vehiculos.estadoNeumatico',
+                'vehiculos.ocupacionCarga',
+                'vehiculos.deformacionMedicion.tipoGolpe',
+                'vehiculos.calculoVelocidad',
+                'vehiculos.narrativaDinamica',
+                'vehiculos.principiosForenses.conclusiones',
+                'vehiculos.fotos.tipoFoto',
+                'reportes',
+            ])
             ->firstOrFail();
 
-    return response()->json($incidente);
+        return response()->json($incidente);
     }
 
     /**
      * DELETE /api/rat/incidentes/{uuid}
      *
-     * Elimina un expediente completo. Solo disponible cuando estado = 0 (Abierto).
-     * Los registros hijos se eliminan por CASCADE en la BD.
+     * Elimina un expediente completo con todos sus registros hijos.
      */
     public function destroy(string $uuid): JsonResponse
     {
@@ -114,7 +134,52 @@ class IncidenteController extends Controller
             ], 422);
         }
 
-        $incidente->delete();
+        DB::transaction(function () use ($incidente) {
+            $id = $incidente->id;
+
+            // Hijos de RAT_INCIDENTE_VEHICULO
+            $ivIds = DB::table('RAT_INCIDENTE_VEHICULO')
+                ->where('incidente_id', $id)->pluck('id');
+
+            if ($ivIds->isNotEmpty()) {
+                // RAT_CONCLUSION → hijos de RAT_PRINCIPIOS_FORENSES
+                $pfIds = DB::table('RAT_PRINCIPIOS_FORENSES')
+                    ->whereIn('incidente_vehiculo_id', $ivIds)->pluck('id');
+                if ($pfIds->isNotEmpty()) {
+                    DB::table('RAT_CONCLUSION')
+                        ->whereIn('principios_forenses_id', $pfIds)->delete();
+                }
+
+                foreach ([
+                    'RAT_PRINCIPIOS_FORENSES', 'RAT_NARRATIVA_DINAMICA',
+                    'RAT_CALCULO_VELOCIDAD',   'RAT_DEFORMACION_MEDICION',
+                    'RAT_FASE_ACCIDENTE',      'RAT_OCUPACION_CARGA',
+                    'RAT_FOTO',                'RAT_MODALIDAD_DANO',
+                    'RAT_IA_SOLICITUD',
+                ] as $tabla) {
+                    DB::table($tabla)->whereIn('incidente_vehiculo_id', $ivIds)->delete();
+                }
+
+                DB::table('RAT_INCIDENTE_VEHICULO')->where('incidente_id', $id)->delete();
+            }
+
+            // Hijos de RAT_UBICACION_VIA
+            $uvIds = DB::table('RAT_UBICACION_VIA')
+                ->where('incidente_id', $id)->pluck('id');
+            if ($uvIds->isNotEmpty()) {
+                DB::table('RAT_HUELLA_ESCENA')
+                    ->whereIn('ubicacion_via_id', $uvIds)->delete();
+            }
+
+            // IA solicitudes con referencia directa al incidente
+            DB::table('RAT_IA_SOLICITUD')->where('incidente_id', $id)->delete();
+
+            // Hijos directos del incidente
+            DB::table('RAT_UBICACION_VIA')->where('incidente_id', $id)->delete();
+            DB::table('RAT_REPORTE')->where('incidente_id', $id)->delete();
+
+            $incidente->delete();
+        });
 
         return response()->json(['message' => 'Expediente eliminado.'], 200);
     }

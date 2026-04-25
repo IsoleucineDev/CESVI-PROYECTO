@@ -29,12 +29,28 @@ class ExpedienteWizardController extends Controller
         $data = $this->lumenValidate($request, [
             'numero_siniestro'  => 'required|string|max:100|unique:RAT_INCIDENTE,numero_siniestro',
             'fecha_hecho'       => 'required|date',
-            'hora_hecho'        => 'nullable|date_format:H:i',
+            'hora_hecho'        => 'nullable|date_format:H:i,H:i:s',
             'tipo_hecho_id'     => 'required|exists:RAT_CAT_TIPO_HECHO,id',
             'id_usuario_perito' => 'required|exists:sys_users,id_user',
             'estado'            => 'sometimes|integer|in:0,1,2',
         ]);
         $incidente = Incidente::create($data);
+
+        // Crear stub vehiculo + IV inmediatamente para que las fotos
+        // puedan subirse antes de que el usuario complete el Paso 2.
+        $stubVin     = 'TMP_' . substr(str_replace('-', '', $incidente->uuid), 0, 13);
+        $stubVehiculo = Vehiculo::create([
+            'vin'           => $stubVin,
+            'marca'         => 'Por definir',
+            'anio_modelo'   => (int) date('Y'),
+            'tipo_vehiculo' => 'ligero',
+        ]);
+        IncidenteVehiculo::create([
+            'incidente_id' => $incidente->id,
+            'vehiculo_id'  => $stubVehiculo->id,
+            'rol'          => 'A',
+        ]);
+
         return response()->json([
             'message'          => 'Paso 1 guardado.',
             'incidente_uuid'   => $incidente->uuid,
@@ -48,7 +64,7 @@ class ExpedienteWizardController extends Controller
         $data = $this->lumenValidate($request, [
             'numero_siniestro'  => 'sometimes|string|max:100|unique:RAT_INCIDENTE,numero_siniestro,'.$incidente->id,
             'fecha_hecho'       => 'sometimes|date',
-            'hora_hecho'        => 'nullable|date_format:H:i',
+            'hora_hecho'        => 'nullable|date_format:H:i,H:i:s',
             'tipo_hecho_id'     => 'sometimes|exists:RAT_CAT_TIPO_HECHO,id',
             'id_usuario_perito' => 'sometimes|exists:sys_users,id_user',
             'estado'            => 'sometimes|integer|in:0,1,2',
@@ -67,41 +83,77 @@ class ExpedienteWizardController extends Controller
             'nombre_modelo'             => 'nullable|string|max:200',
             'anio_modelo'               => 'required|integer',
             'tipo_vehiculo'             => 'required|in:ligero,pesado',
+            'peso_tara_kg'              => 'nullable|numeric|min:0',
+            'masa_maxima_autorizada_kg' => 'nullable|numeric|min:0',
+            'ancho_mm'                  => 'nullable|numeric|min:0',
+            'largo_mm'                  => 'nullable|numeric|min:0',
+            'alto_mm'                   => 'nullable|numeric|min:0',
+            'batalla_mm'                => 'nullable|numeric|min:0',
+            'entrevia_delantera_mm'     => 'nullable|numeric|min:0',
+            'entrevia_trasera_mm'       => 'nullable|numeric|min:0',
             'numero_placas'             => 'nullable|string|max:20',
+            'color_id'                  => 'nullable|exists:RAT_CAT_COLOR,id',
+            'estado_neumatico_id'       => 'nullable|exists:RAT_CAT_ESTADO_NEUMATICO,id',
             'rol'                       => 'required|in:A,B,C',
         ]);
 
-        DB::table('RAT_VEHICULO')->updateOrInsert(
-            ['vin' => $data['vin']],
-            [
-                'marca'         => $data['marca'],
-                'submarca'      => $data['submarca'] ?? null,
-                'nombre_modelo' => $data['nombre_modelo'] ?? null,
-                'anio_modelo'   => $data['anio_modelo'],
-                'tipo_vehiculo' => $data['tipo_vehiculo'],
-                'uuid'          => (string) \Illuminate\Support\Str::uuid(),
-                'updated_at'    => date('Y-m-d H:i:s')
-            ]
-        );
+        $vehiculoData = [
+            'marca'                     => $data['marca'],
+            'submarca'                  => $data['submarca'] ?? null,
+            'nombre_modelo'             => $data['nombre_modelo'] ?? null,
+            'anio_modelo'               => $data['anio_modelo'],
+            'tipo_vehiculo'             => $data['tipo_vehiculo'],
+            'peso_tara_kg'              => $data['peso_tara_kg'] ?? null,
+            'masa_maxima_autorizada_kg' => $data['masa_maxima_autorizada_kg'] ?? null,
+            'ancho_mm'                  => $data['ancho_mm'] ?? null,
+            'largo_mm'                  => $data['largo_mm'] ?? null,
+            'alto_mm'                   => $data['alto_mm'] ?? null,
+            'batalla_mm'                => $data['batalla_mm'] ?? null,
+            'entrevia_delantera_mm'     => $data['entrevia_delantera_mm'] ?? null,
+            'entrevia_trasera_mm'       => $data['entrevia_trasera_mm'] ?? null,
+        ];
 
-        $vehiculo = DB::table('RAT_VEHICULO')->where('vin', $data['vin'])->first();
+        $ivData = [
+            'numero_placas'       => $data['numero_placas'] ?? null,
+            'color_id'            => $data['color_id'] ?? null,
+            'estado_neumatico_id' => $data['estado_neumatico_id'] ?? null,
+            'rol'                 => $data['rol'],
+        ];
 
+        // Buscar el IV existente para este incidente (puede ser el stub del paso 1)
+        $iv            = IncidenteVehiculo::where('incidente_id', $incidente->id)->orderBy('id')->first();
+        // Buscar si ya existe otro vehiculo con este VIN
+        $vehiculoPorVin = Vehiculo::where('vin', $data['vin'])->first();
 
-        $incidenteId = $incidente->getAttributes()['id'];
+        if ($iv) {
+            if ($vehiculoPorVin && $vehiculoPorVin->id !== $iv->vehiculo_id) {
+                // El VIN ya pertenece a otro vehiculo: actualizarlo y re-enlazar
+                $vehiculoPorVin->update($vehiculoData);
+                $iv->update(array_merge($ivData, ['vehiculo_id' => $vehiculoPorVin->id]));
+                $vehiculo = $vehiculoPorVin;
+            } else {
+                // Actualizar el vehiculo actual (incluyendo el VIN, sobreescribe stub)
+                $vehiculo = Vehiculo::find($iv->vehiculo_id);
+                if ($vehiculo) {
+                    $vehiculo->fill(array_merge(['vin' => $data['vin']], $vehiculoData))->save();
+                } else {
+                    $vehiculo = Vehiculo::create(array_merge(['vin' => $data['vin']], $vehiculoData));
+                    $iv->update(['vehiculo_id' => $vehiculo->id]);
+                }
+                $iv->update($ivData);
+            }
+        } else {
+            // No existe IV: crear vehiculo + IV
+            $vehiculo = $vehiculoPorVin
+                ? tap($vehiculoPorVin, fn($v) => $v->update($vehiculoData))
+                : Vehiculo::create(array_merge(['vin' => $data['vin']], $vehiculoData));
+            IncidenteVehiculo::create(array_merge($ivData, [
+                'incidente_id' => $incidente->id,
+                'vehiculo_id'  => $vehiculo->id,
+            ]));
+        }
 
-        DB::table('RAT_INCIDENTE_VEHICULO')->updateOrInsert(
-            ['incidente_id' => $incidenteId, 'vehiculo_id' => $vehiculo->id],
-            [
-                'numero_placas' => $data['numero_placas'] ?? null,
-                'rol'           => $data['rol'],
-                'uuid'          => (string) \Illuminate\Support\Str::uuid()
-            ]
-        );
-
-        return response()->json([
-            'message' => 'Paso 2 guardado correctamente.',
-            'vehiculo_id' => $vehiculo->id
-        ]);
+        return response()->json(['message' => 'Paso 2 guardado correctamente.', 'vehiculo_id' => $vehiculo->id]);
     }
 
     public function updatePaso3(Request $request, string $uuid): JsonResponse
@@ -140,6 +192,8 @@ class ExpedienteWizardController extends Controller
             'tipo_pavimento_id'              => 'nullable|exists:RAT_CAT_TIPO_PAVIMENTO,id',
             'clima_id'                       => 'nullable|exists:RAT_CAT_CLIMA,id',
             'mu_coeficiente_adherencia'      => 'nullable|numeric|between:0,1',
+            'orientacion_id'                 => 'nullable|exists:RAT_CAT_ORIENTACION_VIA,id',
+            'sentido_vialidad_id'            => 'nullable|exists:RAT_CAT_SENTIDO_VIALIDAD,id',
         ]);
         $ubicacion = UbicacionVia::updateOrCreate(['incidente_id' => $incidente->id], $data);
         return response()->json(['message' => 'Paso 4 guardado.', 'ubicacion_uuid' => $ubicacion->uuid]);
@@ -149,9 +203,24 @@ class ExpedienteWizardController extends Controller
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
         $iv = $this->getIncidenteVehiculo($incidente);
+
+        // Fallback para incidentes creados antes de la versión con stub automático
         if (!$iv) {
-            return response()->json(['message' => 'Completa el Paso 2 antes de subir fotos.'], 422);
+            $stubVin      = 'TMP_' . substr(str_replace('-', '', $uuid), 0, 13);
+            $stubVehiculo = Vehiculo::where('vin', $stubVin)->first()
+                ?? Vehiculo::create([
+                    'vin'           => $stubVin,
+                    'marca'         => 'Por definir',
+                    'anio_modelo'   => (int) date('Y'),
+                    'tipo_vehiculo' => 'ligero',
+                ]);
+            $iv = IncidenteVehiculo::create([
+                'incidente_id' => $incidente->id,
+                'vehiculo_id'  => $stubVehiculo->id,
+                'rol'          => 'A',
+            ]);
         }
+
         $this->lumenValidate($request, [
             'tipo_foto_id' => 'required|exists:RAT_CAT_TIPO_FOTO,id',
             'foto'         => 'required|file|mimes:jpg,jpeg,png,webp|max:10240',
@@ -170,12 +239,31 @@ class ExpedienteWizardController extends Controller
     public function destroyFoto(string $uuid, int $fotoId): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
-        $iv = $this->getIncidenteVehiculo($incidente);
-        if (!$iv) return response()->json(['message' => 'Sin vehículo.'], 422);
-        $foto = Foto::where('id', $fotoId)->where('incidente_vehiculo_id', $iv->id)->firstOrFail();
-        if (\Storage::disk('public')->exists($foto->url)) \Storage::disk('public')->delete($foto->url);
+        $ivIds = IncidenteVehiculo::where('incidente_id', $incidente->id)->pluck('id');
+        $foto  = Foto::where('id', $fotoId)->whereIn('incidente_vehiculo_id', $ivIds)->firstOrFail();
+        $filePath = storage_path("app/public/{$foto->url}");
+        if (file_exists($filePath)) {
+            @unlink($filePath);
+        }
         $foto->delete();
         return response()->json(['message' => 'Foto eliminada.']);
+    }
+
+    public function servirFoto(int $fotoId): \Illuminate\Http\Response
+    {
+        $foto = Foto::findOrFail($fotoId);
+        $path = storage_path("app/public/{$foto->url}");
+        if (!file_exists($path)) abort(404);
+        $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = match($ext) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png'         => 'image/png',
+            'webp'        => 'image/webp',
+            default       => 'application/octet-stream',
+        };
+        return response(file_get_contents($path), 200)
+            ->header('Content-Type', $mime)
+            ->header('Cache-Control', 'private, max-age=3600');
     }
 
     public function updatePaso6(Request $request, string $uuid): JsonResponse
@@ -186,12 +274,13 @@ class ExpedienteWizardController extends Controller
             'numero_mediciones_id' => 'required|exists:RAT_CAT_NUMERO_MEDICIONES,id',
             'c1_m'                 => 'required|numeric|min:0',
             'c2_m'                 => 'required|numeric|min:0',
-            'c3_m'                 => 'required|numeric|min:0',
+            'c3_m'                 => 'nullable|numeric|min:0',
             'c4_m'                 => 'nullable|numeric|min:0',
             'c5_m'                 => 'nullable|numeric|min:0',
             'c6_m'                 => 'nullable|numeric|min:0',
             'l_ancho_contacto_m'   => 'nullable|numeric|min:0',
             'angulo_fpi_grados'    => 'nullable|numeric|between:-90,90',
+            'linea_referencia_mm'  => 'nullable|numeric|min:0',
         ]);
         $iv = $this->getIncidenteVehiculo($incidente);
         if (!$iv) return response()->json(['message' => 'Completa el Paso 2 antes.'], 422);
@@ -262,23 +351,37 @@ class ExpedienteWizardController extends Controller
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
         $data = $this->lumenValidate($request, [
             'principio_intercambio_materiales' => 'nullable|string',
-            'principio_correspondencia'         => 'nullable|string',
-            'conclusiones_texto'                => 'nullable|string',
-            'tipo_documento'                    => 'required|in:informe,dictamen',
-            'accion'                            => 'nullable|in:guardar,validar,emitir',
+            'principio_correspondencia'        => 'nullable|string',
+            'conclusiones_texto'               => 'nullable|string',
+            'tipo_documento'                   => 'required|in:informe,dictamen',
+            'accion'                           => 'nullable|in:guardar,validar,emitir',
         ]);
 
         $iv = $this->getIncidenteVehiculo($incidente);
 
         DB::transaction(function () use ($data, $incidente, $iv) {
             if ($iv) {
-                PrincipiosForenses::updateOrCreate(
+                $principios = PrincipiosForenses::updateOrCreate(
                     ['incidente_vehiculo_id' => $iv->id],
                     [
                         'principio_intercambio_materiales' => $data['principio_intercambio_materiales'] ?? null,
-                        'principio_correspondencia'         => $data['principio_correspondencia'] ?? null,
+                        'principio_correspondencia'        => $data['principio_correspondencia'] ?? null,
                     ]
                 );
+                // Guardar conclusiones: reemplazar todas con las líneas del textarea
+                if (!empty($data['conclusiones_texto'])) {
+                    Conclusion::where('principios_forenses_id', $principios->id)->delete();
+                    $lineas = array_values(array_filter(
+                        array_map('trim', explode("\n", $data['conclusiones_texto']))
+                    ));
+                    foreach ($lineas as $i => $linea) {
+                        Conclusion::create([
+                            'principios_forenses_id' => $principios->id,
+                            'orden'                  => $i + 1,
+                            'texto_conclusion'       => $linea,
+                        ]);
+                    }
+                }
             }
 
             $reporte = Reporte::updateOrCreate(
