@@ -62,6 +62,10 @@ $app->singleton(
 */
 
 $app->configure('app');
+$app->configure('filesystems');
+
+/* Filesystem (Storage facade) */
+$app->register(Illuminate\Filesystem\FilesystemServiceProvider::class);
 
 /* Mail */
 

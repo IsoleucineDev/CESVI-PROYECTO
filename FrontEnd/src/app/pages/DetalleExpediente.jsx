@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Download, Send, CheckCircle, AlertTriangle,
-  FileText, User, Camera, Ruler, Calculator, BookOpen,
+  FileText, User, Camera, Ruler, Calculator, BookOpen, Pencil,
 } from "lucide-react";
 import { useIncidente } from "../../hooks/useIncidente";
 import { generarReporte, getUrlDescarga } from "../../services/reporteService";
@@ -32,10 +32,6 @@ function Row({ label, val, highlight }) {
       <span className={`text-xs font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>{val ?? "—"}</span>
     </div>
   );
-}
-
-function Skeleton({ className = "" }) {
-  return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
 }
 
 function TabResumen({ inc }) {
@@ -302,46 +298,39 @@ function TabNarrativa({ inc }) {
   );
 }
 
-function TabReporte({ uuid }) {
-  const [generando, setGenerando] = useState(false);
-  const [url,       setUrl]       = useState(null);
-  const [error,     setError]     = useState("");
-
-  const handleGenerar = async () => {
-    setGenerando(true); setError("");
-    try {
-      const data = await generarReporte(uuid);
-      setUrl(data.url_descarga ?? getUrlDescarga(uuid));
-    } catch (e) {
-      setError(e.message ?? "Error al generar reporte");
-    } finally {
-      setGenerando(false);
-    }
-  };
-
+function TabReporte({ uuid, wordUrl, wordGenerando, wordError, onGenerar }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 text-xs">
           <CheckCircle size={14} /> Conclusiones validadas por perito responsable
         </div>
-        {error && <span className="text-xs text-red-600">{error}</span>}
+        {wordError && <span className="text-xs text-red-600">{wordError}</span>}
         <div className="ml-auto flex gap-2">
-          {url && (
-            <a href={url} target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]">
+          {wordUrl && (
+            <a
+              href={wordUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]"
+            >
               <Download size={13} /> Descargar Word
             </a>
           )}
-          <button onClick={handleGenerar} disabled={generando}
+          <button
+            onClick={onGenerar}
+            disabled={wordGenerando}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs disabled:opacity-60"
-            style={{ backgroundColor: "#00ADCF" }}>
-            <Send size={13} /> {generando ? "Generando..." : "Generar Reporte"}
+            style={{ backgroundColor: "#00ADCF" }}
+          >
+            <Send size={13} /> {wordGenerando ? "Generando..." : "Generar Reporte Word"}
           </button>
         </div>
       </div>
       <div className="border border-gray-300 rounded bg-gray-50 h-48 flex items-center justify-center text-xs text-gray-400">
-        {url ? "Reporte generado — descarga disponible arriba." : "Presiona 'Generar Reporte' para crear el documento Word."}
+        {wordUrl
+          ? "Reporte Word generado — descarga disponible arriba."
+          : "Presiona 'Generar Reporte Word' para crear el documento .docx."}
       </div>
     </div>
   );
@@ -352,6 +341,26 @@ export default function DetalleExpediente() {
   const navigate  = useNavigate();
   const [tab, setTab] = useState("resumen");
   const { incidente, loading, error } = useIncidente(id);
+
+  // Estado para generación del Word (compartido entre header y tab Reporte)
+  const [wordUrl,       setWordUrl]       = useState(null);
+  const [wordGenerando, setWordGenerando] = useState(false);
+  const [wordError,     setWordError]     = useState("");
+
+  const handleGenerarWord = async () => {
+    setWordGenerando(true);
+    setWordError("");
+    try {
+      const data = await generarReporte(id);
+      setWordUrl(data.url_descarga ?? getUrlDescarga(id));
+    } catch (e) {
+      // Extraer el detalle real del cuerpo de respuesta del backend
+      const detail = e?.response?.data?.error ?? e?.response?.data?.message ?? e.message ?? "Error al generar reporte";
+      setWordError(detail);
+    } finally {
+      setWordGenerando(false);
+    }
+  };
 
   const inc = incidente ?? {};
   const iv  = inc.vehiculos?.[0];
@@ -389,9 +398,34 @@ export default function DetalleExpediente() {
           )}
 
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF]">
-            <Download size={13} /> Word
+          {/* Botón Editar */}
+          <button
+            onClick={() => navigate(`/expedientes/${id}/editar`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF] hover:text-[#00ADCF]"
+            title="Editar expediente"
+          >
+            <Pencil size={13} /> Editar
           </button>
+
+          {/* Botón Word */}
+          {wordUrl ? (
+            <a
+              href={wordUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#00ADCF] rounded text-xs text-[#00ADCF] hover:bg-[#E0F7FA]"
+            >
+              <Download size={13} /> Descargar Word
+            </a>
+          ) : (
+            <button
+              onClick={handleGenerarWord}
+              disabled={wordGenerando}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-600 hover:border-[#00ADCF] disabled:opacity-50"
+            >
+              <Download size={13} /> {wordGenerando ? "Generando..." : "Word"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -422,7 +456,15 @@ export default function DetalleExpediente() {
                 {tab === "deformacion" && <TabDeformacion inc={inc} />}
                 {tab === "calculos"    && <TabCalculos    inc={inc} />}
                 {tab === "narrativa"   && <TabNarrativa   inc={inc} />}
-                {tab === "reporte"     && <TabReporte     uuid={id} />}
+                {tab === "reporte"     && (
+                  <TabReporte
+                    uuid={id}
+                    wordUrl={wordUrl}
+                    wordGenerando={wordGenerando}
+                    wordError={wordError}
+                    onGenerar={handleGenerarWord}
+                  />
+                )}
               </>
             )}
         </div>

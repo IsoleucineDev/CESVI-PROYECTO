@@ -1,11 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Check, ChevronLeft, ChevronRight,
-  Upload, X, AlertCircle, RefreshCw, FileText,
+  Upload, X, AlertCircle, FileText,
 } from "lucide-react";
 import {
   createIncidentePaso1,
+  updateIncidentePaso1,
   updatePaso2Vehiculo,
   updatePaso3Ocupantes,
   updatePaso4Via,
@@ -13,8 +14,10 @@ import {
   storePaso7Calculo,
   updatePaso8Narrativa,
   updatePaso9Reporte,
+  getIncidenteById,
 } from "../../services/incidenteService";
 import { getCatalogos, getPeritos } from "../../services/catalogosService";
+import { useAuth } from "../../hooks/useAuth";
 
 // ── Contexto: form + catálogos disponibles en todos los pasos ─────────────────
 const FormCtx = createContext(null);
@@ -63,7 +66,7 @@ function CatSel({ field, label, req, items, placeholder = "Seleccionar..." }) {
 
 // ── PASO 0: Incidente ─────────────────────────────────────────────────────────
 function StepIncidente() {
-  const { form, setField, cats, peritos } = useForm();
+  const { form, setField, cats, user } = useForm();
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label="Número de Siniestro" req>
@@ -72,13 +75,13 @@ function StepIncidente() {
           onChange={(e) => setField("numero_siniestro", e.target.value)} />
       </Field>
       <Field label="Perito Responsable" req>
-        <select className={sel} value={form.id_usuario_perito ?? ""}
-          onChange={(e) => setField("id_usuario_perito", Number(e.target.value))}>
-          <option value="">Seleccionar...</option>
-          {peritos.map((p) => (
-            <option key={p.id_user} value={p.id_user}>{p.name}</option>
-          ))}
-        </select>
+        <input
+          className={`${inp} bg-gray-100 text-gray-600`}
+          value={user?.name ?? "Cargando..."}
+          readOnly
+          style={{ cursor: "not-allowed" }}
+          title="El perito responsable es el usuario que inició sesión"
+        />
       </Field>
       <Field label="Fecha del Hecho" req>
         <input type="date" className={inp} value={form.fecha_hecho ?? ""}
@@ -490,7 +493,6 @@ function StepCalculo() {
 // ── PASO 7: Narrativa ─────────────────────────────────────────────────────────
 function StepNarrativa() {
   const { form, setField } = useForm();
-  const sugerida = "Con base en el análisis de las evidencias fotográficas, mediciones de deformación y cálculos realizados conforme a la metodología McHenry, se determina que el vehículo circulaba a una velocidad estimada superior al límite permitido cuando ocurrió el hecho vial.";
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="flex flex-col gap-4">
@@ -539,30 +541,10 @@ function StepNarrativa() {
       </div>
       <div className="flex flex-col gap-3">
         <div className="text-xs text-gray-600 border-b border-gray-200 pb-1">Narrativa del Hecho</div>
-        <textarea className={`${inp} h-28 resize-none`}
+        <textarea className={`${inp} h-40 resize-none`}
           placeholder="Redacte la narrativa técnica del hecho..."
           value={form.narracion_hechos ?? ""}
           onChange={(e) => setField("narracion_hechos", e.target.value)} />
-        <div className="p-3 bg-[#E0F7FA] border border-[#00ADCF]/30 rounded">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-medium text-gray-700">Narrativa sugerida por IA</span>
-            <span className="text-xs bg-[#00ADCF] text-white px-1.5 rounded">Beta</span>
-          </div>
-          <p className="text-xs text-gray-600 leading-5">{sugerida}</p>
-          <div className="flex gap-2 mt-3">
-            <button onClick={() => setField("narracion_hechos", sugerida)}
-              className="px-3 py-1.5 text-xs rounded text-white" style={{ backgroundColor: "#00ADCF" }}>
-              Aceptar sugerencia
-            </button>
-            <button onClick={() => setField("narracion_hechos", "")}
-              className="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600">
-              Limpiar
-            </button>
-            <button className="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 flex items-center gap-1">
-              <RefreshCw size={12} /> Regenerar
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -622,9 +604,6 @@ function StepReporte() {
             className="w-full py-2 text-xs rounded text-white" style={{ backgroundColor: "#00ADCF" }}>
             Validar Conclusiones
           </button>
-          <button className="w-full py-2 text-xs rounded border border-gray-300 text-gray-700 hover:border-[#00ADCF]">
-            Generar PDF
-          </button>
           <button onClick={() => setField("accion", "emitir")}
             className="w-full py-2 text-xs rounded border border-yellow-400 text-yellow-700 hover:bg-yellow-50">
             Enviar a Revisión
@@ -637,13 +616,18 @@ function StepReporte() {
 
 // ── Componente principal ───────────────────────────────────────────────────────
 export default function NuevoCaso() {
+  const { id } = useParams();
+  const editMode = Boolean(id);
+  const { user } = useAuth();
   const navigate = useNavigate();
+
   const [step, setStep]                   = useState(0);
   const [saving, setSaving]               = useState(false);
   const [saveError, setSaveError]         = useState("");
   const [incidenteUuid, setIncidenteUuid] = useState(null);
   const [cats, setCats]                   = useState(null);
   const [peritos, setPeritos]             = useState([]);
+  const [loadingEdit, setLoadingEdit]     = useState(editMode);
 
   const [form, setFormState] = useState({
     numero_siniestro: "", tipo_hecho_id: "", fecha_hecho: "",
@@ -655,12 +639,130 @@ export default function NuevoCaso() {
     setFormState((prev) => ({ ...prev, [key]: val }));
   }, []);
 
-  // Cargar catálogos una sola vez
+  // Auto-asignar perito desde usuario autenticado
+  useEffect(() => {
+    if (user?.id_user) {
+      setFormState((prev) => ({ ...prev, id_usuario_perito: user.id_user }));
+    }
+  }, [user]);
+
+  // Cargar catálogos
   useEffect(() => {
     Promise.all([getCatalogos(), getPeritos()])
       .then(([c, p]) => { setCats(c); setPeritos(Array.isArray(p) ? p : []); })
       .catch(() => {});
   }, []);
+
+  // Cargar datos existentes en modo edición
+  useEffect(() => {
+    if (!editMode) return;
+    setIncidenteUuid(id); // UUID ya conocido desde la URL; no depende de la respuesta
+    setLoadingEdit(true);
+    getIncidenteById(id)
+      .then((raw) => {
+        const inc = raw?.data || raw;
+        // El modelo devuelve "uuid", no "incidente_uuid"
+        if (inc.uuid) setIncidenteUuid(inc.uuid);
+        const iv  = inc.vehiculos?.[0] ?? {};
+        const veh = iv.vehiculo ?? {};
+        const oc  = iv.ocupacion_carga ?? {};
+        const ub  = inc.ubicacion_via ?? {};
+        const def = iv.deformacion_medicion ?? {};
+        const cal = iv.calculo_velocidad ?? {};
+        const nar = iv.narrativa_dinamica ?? {};
+        const pri = iv.principios_forenses ?? {};
+        setFormState((prev) => ({
+          ...prev,
+          // Paso 0: Incidente
+          numero_siniestro:  inc.numero_siniestro ?? "",
+          tipo_hecho_id:     inc.tipo_hecho_id ?? "",
+          // La API devuelve ISO timestamp; el input type=date necesita yyyy-MM-dd
+          fecha_hecho:       inc.fecha_hecho ? String(inc.fecha_hecho).split('T')[0] : "",
+          hora_hecho:        inc.hora_hecho ?? "",
+          estado:            inc.estado ?? 0,
+          id_usuario_perito: user?.id_user ?? inc.id_usuario_perito ?? "",
+          // Paso 1: Vehículo
+          vin:                       veh.vin ?? "",
+          marca:                     veh.marca ?? "",
+          submarca:                  veh.submarca ?? "",
+          anio_modelo:               veh.anio_modelo ?? "",
+          tipo_vehiculo:             veh.tipo_vehiculo ?? "",
+          peso_tara_kg:              veh.peso_tara_kg ?? "",
+          masa_maxima_autorizada_kg: veh.masa_maxima_autorizada_kg ?? "",
+          ancho_mm:                  veh.ancho_mm ?? "",
+          largo_mm:                  veh.largo_mm ?? "",
+          alto_mm:                   veh.alto_mm ?? "",
+          batalla_mm:                veh.batalla_mm ?? "",
+          entrevia_delantera_mm:     veh.entrevia_delantera_mm ?? "",
+          entrevia_trasera_mm:       veh.entrevia_trasera_mm ?? "",
+          numero_placas:             iv.numero_placas ?? "",
+          color_id:                  iv.color_id ?? "",
+          estado_neumatico_id:       iv.estado_neumatico_id ?? "",
+          rol:                       iv.rol ?? "",
+          // Paso 2: Ocupantes
+          numero_ocupantes:  oc.numero_ocupantes ?? "",
+          peso_conductor_kg: oc.peso_conductor_kg ?? "",
+          peso_pasajeros_kg: oc.peso_pasajeros_kg ?? "",
+          peso_equipaje_kg:  oc.peso_equipaje_kg ?? "",
+          // Paso 3: Vía
+          calle:                         ub.calle ?? "",
+          municipio:                     ub.municipio ?? "",
+          km_punto:                      ub.km_punto ?? "",
+          lat:                           ub.lat ?? "",
+          lng:                           ub.lng ?? "",
+          velocidad_maxima_permitida_kmh:ub.velocidad_maxima_permitida_kmh ?? "",
+          tipo_via_id:                   ub.tipo_via_id ?? "",
+          tipo_trazo_id:                 ub.tipo_trazo_id ?? "",
+          condicion_superficie_id:       ub.condicion_superficie_id ?? "",
+          condicion_pavimento_id:        ub.condicion_pavimento_id ?? "",
+          tipo_pavimento_id:             ub.tipo_pavimento_id ?? "",
+          clima_id:                      ub.clima_id ?? "",
+          orientacion_id:                ub.orientacion_id ?? "",
+          sentido_vialidad_id:           ub.sentido_vialidad_id ?? "",
+          // Paso 5: Deformación (almacenado en metros → mostrar en mm)
+          tipo_golpe_id:        def.tipo_golpe_id ?? "",
+          numero_mediciones_id: def.numero_mediciones_id ?? "",
+          medicion_C1:          def.c1_m != null ? def.c1_m * 1000 : "",
+          medicion_C2:          def.c2_m != null ? def.c2_m * 1000 : "",
+          medicion_C3:          def.c3_m != null ? def.c3_m * 1000 : "",
+          medicion_C4:          def.c4_m != null ? def.c4_m * 1000 : "",
+          medicion_C5:          def.c5_m != null ? def.c5_m * 1000 : "",
+          medicion_C6:          def.c6_m != null ? def.c6_m * 1000 : "",
+          l_ancho_contacto_m:   def.l_ancho_contacto_m ?? "",
+          angulo_fpi_grados:    def.angulo_fpi_grados ?? "",
+          linea_referencia_mm:  def.linea_referencia_mm ?? "",
+          // Paso 6: Cálculo
+          a_rigidez_n_m:             cal.rigidez_a ?? "",
+          b_rigidez_n_m2:            cal.rigidez_b ?? "",
+          dmed_m:                    cal.dmed_m ?? "",
+          tiempo_respuesta_frenos_s: cal.tiempo_reaccion_s ?? "",
+          velocidad_final_kmh:       cal.velocidad_final_kmh ?? "",
+          e_deformacion_julios:      cal.e_deformacion_julios ?? "",
+          e_def_corregida_julios:    cal.e_def_corregida_julios ?? "",
+          ebs_m_s:                   cal.ebs_kmh ?? "",
+          velocidad_impacto_kmh:     cal.velocidad_impacto_kmh ?? "",
+          velocidad_pre_impacto_kmh: cal.velocidad_pre_impacto_kmh ?? "",
+          velocidad_limpert_kmh:     cal.velocidad_limpert_kmh ?? "",
+          delta_exceso_kmh:          cal.delta_exceso_kmh ?? "",
+          // Paso 7: Narrativa
+          narracion_hechos:            nar.narracion_hechos ?? "",
+          objeto_involucrado:          nar.objeto_involucrado ?? "",
+          descripcion_objeto_fijo:     nar.descripcion_objeto_fijo ?? "",
+          posicion_final_vehiculo:     nar.posicion_final_vehiculo ?? "",
+          direccion_circulacion:       nar.direccion_circulacion ?? "",
+          distancia_ppr_al_pc_m:       nar.distancia_ppr_al_pc_m ?? "",
+          tiempo_reaccion_conductor_s: nar.tiempo_reaccion_conductor_s ?? "",
+          huellas_derrape_m:           nar.huellas_derrape_m ?? "",
+          // Paso 8: Reporte
+          principio_intercambio_materiales: pri.principio_intercambio_materiales ?? "",
+          principio_correspondencia:        pri.principio_correspondencia ?? "",
+          conclusiones_texto:               pri.conclusiones_texto ?? "",
+          tipo_documento: inc.reporte?.tipo_documento ?? "informe",
+        }));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEdit(false));
+  }, [editMode, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Lógica de guardado por paso ────────────────────────────────────────────
   const handleGuardar = useCallback(async () => {
@@ -668,22 +770,28 @@ export default function NuevoCaso() {
     setSaving(true);
     try {
 
-      // ── PASO 0: Crear incidente ──
+      // ── PASO 0: Incidente ──
       if (step === 0) {
         if (!form.numero_siniestro?.trim()) throw new Error("El Número de Siniestro es obligatorio.");
         if (!form.tipo_hecho_id)            throw new Error("Selecciona el Tipo de Hecho.");
         if (!form.fecha_hecho)              throw new Error("La Fecha del Hecho es obligatoria.");
-        if (!form.id_usuario_perito)        throw new Error("Selecciona el Perito Responsable.");
+        if (!form.id_usuario_perito)        throw new Error("No se pudo identificar al perito. Inicia sesión nuevamente.");
 
-        const res = await createIncidentePaso1({
+        const payload = {
           numero_siniestro  : form.numero_siniestro.trim(),
           tipo_hecho_id     : Number(form.tipo_hecho_id),
           fecha_hecho       : form.fecha_hecho,
           hora_hecho        : form.hora_hecho || null,
           id_usuario_perito : Number(form.id_usuario_perito),
           estado            : form.estado ?? 0,
-        });
-        setIncidenteUuid(res.incidente_uuid);
+        };
+
+        if (editMode) {
+          await updateIncidentePaso1(incidenteUuid, payload);
+        } else {
+          const res = await createIncidentePaso1(payload);
+          setIncidenteUuid(res.incidente_uuid);
+        }
 
       } else if (!incidenteUuid) {
         throw new Error("Primero completa y guarda el Paso 1 (Incidente).");
@@ -728,6 +836,9 @@ export default function NuevoCaso() {
 
       // ── PASO 3: Vía ──
       } else if (step === 3) {
+        if (!form.municipio?.trim())              throw new Error("El Municipio / Estado es obligatorio.");
+        if (!form.velocidad_maxima_permitida_kmh) throw new Error("La Velocidad Máxima Permitida (km/h) es obligatoria.");
+
         await updatePaso4Via(incidenteUuid, {
           calle                          : form.calle || null,
           municipio                      : form.municipio || null,
@@ -745,7 +856,7 @@ export default function NuevoCaso() {
           sentido_vialidad_id            : form.sentido_vialidad_id     ? Number(form.sentido_vialidad_id) : null,
         });
 
-      // ── PASO 4: Evidencia — por ahora solo avanza (subida de archivos se hace en servidor) ──
+      // ── PASO 4: Evidencia ──
       } else if (step === 4) {
         // TODO: conectar subida real de fotos cuando el servidor tenga almacenamiento configurado
 
@@ -789,6 +900,8 @@ export default function NuevoCaso() {
 
       // ── PASO 7: Narrativa ──
       } else if (step === 7) {
+        if (!form.objeto_involucrado) throw new Error("Selecciona el Objeto Involucrado.");
+
         await updatePaso8Narrativa(incidenteUuid, {
           narracion_hechos            : form.narracion_hechos || null,
           objeto_involucrado          : form.objeto_involucrado || null,
@@ -808,11 +921,10 @@ export default function NuevoCaso() {
           tipo_documento                   : form.tipo_documento || "informe",
           accion                           : form.accion || "guardar",
         });
-        navigate("/expedientes");
+        navigate(editMode ? `/expedientes/${id}` : "/expedientes");
         return;
       }
 
-      // Avanzar al siguiente paso
       setStep((s) => Math.min(s + 1, STEPS.length - 1));
 
     } catch (err) {
@@ -820,7 +932,7 @@ export default function NuevoCaso() {
     } finally {
       setSaving(false);
     }
-  }, [step, form, incidenteUuid, navigate]);
+  }, [step, form, incidenteUuid, navigate, editMode, id]);
 
   const STEP_COMPONENTS = [
     <StepIncidente   key="incidente" />,
@@ -836,8 +948,16 @@ export default function NuevoCaso() {
 
   const isLast = step === STEPS.length - 1;
 
+  if (loadingEdit) {
+    return (
+      <div className="p-4 flex items-center justify-center min-h-64">
+        <div className="text-sm text-gray-500">Cargando expediente...</div>
+      </div>
+    );
+  }
+
   return (
-    <FormCtx.Provider value={{ form, setField, cats, peritos }}>
+    <FormCtx.Provider value={{ form, setField, cats, peritos, user }}>
       <div className="p-4 flex flex-col gap-4">
 
         {/* Stepper */}
@@ -869,7 +989,9 @@ export default function NuevoCaso() {
         {/* Contenido del paso */}
         <div className="bg-white border border-gray-200 rounded shadow-sm">
           <div className="px-4 py-3 border-b border-gray-200 bg-gray-500 rounded-t flex items-center justify-between">
-            <span className="text-white text-sm">| {STEPS[step].label}</span>
+            <span className="text-white text-sm">
+              {editMode ? "Editar — " : "| "}{STEPS[step].label}
+            </span>
             {incidenteUuid && (
               <span className="text-[11px] bg-white/20 text-white rounded px-2 py-0.5">
                 ✓ {incidenteUuid}
@@ -879,23 +1001,26 @@ export default function NuevoCaso() {
           <div className="p-4">{STEP_COMPONENTS[step]}</div>
         </div>
 
-        {/* Error */}
+        {/* Alerta de campos obligatorios */}
         {saveError && (
           <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
-            {saveError}
+            <span className="font-medium">Campo obligatorio: </span>
+            <span>{saveError}</span>
           </div>
         )}
 
         {/* Footer */}
         <div className="flex items-center justify-between">
-          <button onClick={() => navigate("/expedientes")}
-            className="px-4 py-2 text-xs border border-gray-300 rounded text-gray-600 hover:border-red-400 hover:text-red-600">
+          <button
+            onClick={() => navigate(editMode ? `/expedientes/${id}` : "/expedientes")}
+            className="px-4 py-2 text-xs border border-gray-300 rounded text-gray-600 hover:border-red-400 hover:text-red-600"
+          >
             Cancelar
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              onClick={() => { setSaveError(""); setStep((s) => Math.max(0, s - 1)); }}
               disabled={step === 0}
               className="flex items-center gap-1 px-3 py-2 text-xs border border-gray-300 rounded text-gray-600 disabled:opacity-40 hover:border-[#00ADCF]"
             >
@@ -907,7 +1032,11 @@ export default function NuevoCaso() {
               className="flex items-center gap-1 px-3 py-2 text-xs rounded text-white disabled:opacity-50"
               style={{ backgroundColor: isLast ? "#10B981" : "#00ADCF" }}
             >
-              {saving ? "Guardando..." : isLast ? "Finalizar expediente" : "Guardar y continuar"}
+              {saving
+                ? "Guardando..."
+                : isLast
+                  ? (editMode ? "Actualizar expediente" : "Finalizar expediente")
+                  : "Guardar y continuar"}
               {!isLast && <ChevronRight size={14} />}
             </button>
           </div>

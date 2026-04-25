@@ -18,6 +18,9 @@ Route::prefix('v1/rat/auth')->group(function () {
     Route::get('/me',      [AuthController::class, 'me'])->middleware('auth:api');
 });
 
+// ── Descarga pública de reportes (sin token) ──────────────────────────────────
+Route::get('/v1/rat/reportes/{uuid}/descargar', [ReporteController::class, 'descargar']);
+
 // ── Rutas protegidas RAT ──────────────────────────────────────────────────────
 Route::prefix('v1/rat')->middleware('auth:api')->group(function () {
 
@@ -65,7 +68,6 @@ Route::prefix('v1/rat')->middleware('auth:api')->group(function () {
     // ── Reportes ──────────────────────────────────────────────────────────────
     Route::get('/reportes/{uuid}',             [ReporteController::class, 'show']);
     Route::post('/reportes/{uuid}/generar',    [ReporteController::class, 'generar']);
-    Route::get('/reportes/{uuid}/descargar',   [ReporteController::class, 'descargar']);
 
     // ── Perfil del perito ─────────────────────────────────────────────────────
     Route::get('/perfil',                  [PerfilController::class, 'show']);

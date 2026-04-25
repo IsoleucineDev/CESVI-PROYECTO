@@ -25,6 +25,7 @@ export const router = createBrowserRouter([
           { path: "expedientes", Component: Expedientes },
           { path: "expedientes/nuevo", Component: NuevoCaso },
           { path: "expedientes/:id", Component: DetalleExpediente },
+          { path: "expedientes/:id/editar", Component: NuevoCaso },
           { path: "configuracion/catalogos", Component: Catalogos },
           { path: "perfil", Component: Perfil },
         ],

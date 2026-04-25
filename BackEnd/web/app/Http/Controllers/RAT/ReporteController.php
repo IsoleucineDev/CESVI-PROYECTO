@@ -72,7 +72,6 @@ class ReporteController extends Controller
 
             $reporte->update([
                 'ruta_documento_word' => "{$carpeta}/{$nombreArchivo}",
-                'fecha_generacion'    => now(),
             ]);
 
             return response()->json([
@@ -130,19 +129,56 @@ class ReporteController extends Controller
     {
         $jsonDatos  = base64_encode(json_encode($datos, JSON_UNESCAPED_UNICODE));
         $scriptPath = base_path('scripts/rat/generar_reporte.mjs');
+        $scriptDir  = dirname($scriptPath);
 
-        if (!file_exists(dirname($scriptPath))) {
-            mkdir(dirname($scriptPath), 0755, true);
+        if (!file_exists($scriptDir)) {
+            mkdir($scriptDir, 0755, true);
         }
 
         $this->escribirScriptNode($scriptPath);
 
-        $comando = "node \"{$scriptPath}\" \"{$rutaSalida}\" \"{$jsonDatos}\" 2>&1";
-        $salida  = shell_exec($comando);
+        // Detectar ruta de node.js (Windows o Unix)
+        $nodeExe = $this->resolverNode();
+
+        // Ejecutar desde el directorio del script para que node resuelva node_modules correctamente
+        if (PHP_OS_FAMILY === 'Windows') {
+            $scriptDir  = str_replace('/', '\\', $scriptDir);
+            $scriptPath = str_replace('/', '\\', $scriptPath);
+            $rutaSalida = str_replace('/', '\\', $rutaSalida);
+            $comando    = "cd /d \"{$scriptDir}\" && \"{$nodeExe}\" \"{$scriptPath}\" \"{$rutaSalida}\" \"{$jsonDatos}\" 2>&1";
+        } else {
+            $comando = "cd \"{$scriptDir}\" && \"{$nodeExe}\" \"{$scriptPath}\" \"{$rutaSalida}\" \"{$jsonDatos}\" 2>&1";
+        }
+
+        $salida = shell_exec($comando);
 
         if (!file_exists($rutaSalida)) {
-            throw new \RuntimeException("Node.js no generó el archivo. Salida: {$salida}");
+            throw new \RuntimeException("Node.js no generó el archivo.\nRuta node: {$nodeExe}\nSalida: {$salida}");
         }
+    }
+
+    private function resolverNode(): string
+    {
+        // Candidatos conocidos en Windows
+        $candidatos = [
+            'D:\\node.exe',
+            'C:\\Program Files\\nodejs\\node.exe',
+            'C:\\Program Files (x86)\\nodejs\\node.exe',
+        ];
+        foreach ($candidatos as $c) {
+            if (file_exists($c)) return $c;
+        }
+
+        // Intentar detectar con where/which
+        $cmd    = PHP_OS_FAMILY === 'Windows' ? 'where node 2>NUL' : 'which node 2>/dev/null';
+        $resultado = trim(shell_exec($cmd) ?? '');
+        $primera   = explode("\n", $resultado)[0];
+        if ($primera && file_exists(trim($primera))) {
+            return trim($primera);
+        }
+
+        // Fallback: esperar que esté en PATH
+        return 'node';
     }
 
     // =========================================================
@@ -587,7 +623,9 @@ JS;
             'dinamica_fases'         => $principios?->dinamica_colision_fases,
 
             // Conclusiones (unidas por salto de línea para el script Node)
-            'conclusiones'           => $principios?->conclusiones()->pluck('texto_conclusion')->join("\n"),
+            'conclusiones'           => $principios
+                ? $principios->conclusiones()->pluck('texto_conclusion')->join("\n")
+                : null,
         ];
     }
 }
