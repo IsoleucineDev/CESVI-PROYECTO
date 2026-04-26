@@ -128,12 +128,6 @@ class IncidenteController extends Controller
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
 
-        if ($incidente->estado !== 0) {
-            return response()->json([
-                'message' => 'Solo se pueden eliminar expedientes en estado Abierto.',
-            ], 422);
-        }
-
         DB::transaction(function () use ($incidente) {
             $id = $incidente->id;
 

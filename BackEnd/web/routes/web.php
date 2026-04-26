@@ -44,6 +44,9 @@ $router->group(['prefix' => 'ReportePerito', 'middleware' => 'jwt'], function ()
     $router->get('{id}', 'ReportePeritoController@show');
 });
 
+// ── RAT API — Rutas públicas (sin auth) ──────────────────────────────────────
+$router->get('/v1/rat/fotos/{id}', 'RAT\ExpedienteWizardController@servirFoto');
+
 // ── RAT API — Rutas protegidas ────────────────────────────────────────────────
 $router->group(['prefix' => 'v1/rat', 'middleware' => 'jwt'], function () use ($router) {
 
@@ -97,4 +100,8 @@ $router->group(['prefix' => 'v1/rat', 'middleware' => 'jwt'], function () use ($
 
     // Monitor
     $router->get('/monitor', 'RAT\MonitorController@show');
+
+    // Admin (solo admin@cesvi.com)
+    $router->get('/admin/usuarios',                 'RAT\AdminController@getUsuarios');
+    $router->put('/admin/usuarios/{id}/password',   'RAT\AdminController@updatePassword');
 });

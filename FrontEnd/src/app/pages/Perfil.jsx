@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { User, Mail, Phone, Shield, Eye } from "lucide-react";
+import { User, Mail, Shield, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePerfil } from "../../hooks/usePerfil";
+import { useAuth } from "../../hooks/useAuth";
 
 const ESTADO_LABEL = { 0: "Abierto", 1: "En revisión", 2: "Finalizado", 3: "Archivado" };
 const ESTADO_BADGE = {
@@ -15,121 +16,32 @@ function Skeleton({ className = "" }) {
   return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
 }
 
-function Field({ label, name, value, edit, onChange }) {
+function InfoRow({ label, value }) {
   return (
     <div>
       <label className="block text-xs text-gray-500 mb-1">{label}</label>
-      {edit ? (
-        <input
-          name={name}
-          defaultValue={value ?? ""}
-          onChange={onChange}
-          className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]"
-        />
-      ) : (
-        <div className="px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-gray-50 text-gray-700">
-          {value || "—"}
-        </div>
-      )}
+      <div className="px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-gray-50 text-gray-700">
+        {value || "—"}
+      </div>
     </div>
   );
 }
 
-function TabDatos({ perfil, loading, onUpdate }) {
-  const [editing, setEditing]   = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [saveError, setSaveError] = useState("");
-  const [form, setForm]         = useState({});
-
-  const startEdit = () => {
-    setForm({
-      telefono:           perfil?.telefono           ?? "",
-      cedula_profesional: perfil?.cedula_profesional ?? "",
-      especialidad:       perfil?.especialidad       ?? "",
-      numero_empleado:    perfil?.numero_empleado    ?? "",
-    });
-    setSaveError("");
-    setEditing(true);
-  };
-
-  const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handleSave = async () => {
-    setSaving(true);
-    const { ok, error } = await onUpdate(form);
-    setSaving(false);
-    if (ok) setEditing(false);
-    else setSaveError(error);
-  };
-
+function TabDatos({ perfil, loading }) {
   return (
-    <div className="grid grid-cols-2 gap-6">
-      <div>
-        <div className="text-xs font-medium text-gray-700 mb-3 border-b border-gray-200 pb-1">Información Personal</div>
-        {loading ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-7 w-full" />)}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <Field label="Nombre completo"                  name="name"               value={perfil?.name}               edit={false} />
-            <Field label="Correo electrónico institucional" name="email"              value={perfil?.email}              edit={false} />
-            <Field label="Teléfono"                         name="telefono"           value={editing ? form.telefono           : perfil?.telefono}           edit={editing} onChange={handleChange} />
-            <Field label="Cédula profesional"               name="cedula_profesional" value={editing ? form.cedula_profesional : perfil?.cedula_profesional} edit={editing} onChange={handleChange} />
-            <Field label="Especialidad"                     name="especialidad"       value={editing ? form.especialidad       : perfil?.especialidad}       edit={editing} onChange={handleChange} />
-          </div>
-        )}
-      </div>
-
-      <div>
-        <div className="text-xs font-medium text-gray-700 mb-3 border-b border-gray-200 pb-1">Información del Sistema</div>
-        {loading ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-7 w-full" />)}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <Field label="Número de empleado" name="numero_empleado" value={editing ? form.numero_empleado : perfil?.numero_empleado} edit={editing} onChange={handleChange} />
-            <Field label="Fecha de alta"      name="fecha_alta"      value={perfil?.fecha_alta}      edit={false} />
-            <Field label="Estado de cuenta"   name="estado"          value="Activo"                  edit={false} />
-          </div>
-        )}
-
-        {saveError && (
-          <div className="mt-2 text-xs text-red-600">{saveError}</div>
-        )}
-
-        {!loading && (
-          <div className="mt-4 flex gap-2">
-            {editing ? (
-              <>
-                <button
-                  className="px-3 py-1.5 text-xs rounded text-white disabled:opacity-60"
-                  style={{ backgroundColor: "#00ADCF" }}
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  {saving ? "Guardando…" : "Guardar cambios"}
-                </button>
-                <button
-                  className="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600"
-                  onClick={() => setEditing(false)}
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
-              </>
-            ) : (
-              <button
-                className="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 hover:border-[#00ADCF] hover:text-[#00ADCF]"
-                onClick={startEdit}
-              >
-                Editar datos
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+    <div className="max-w-sm flex flex-col gap-3">
+      <div className="text-xs font-medium text-gray-700 mb-1 border-b border-gray-200 pb-1">Información de la cuenta</div>
+      {loading ? (
+        <>
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+        </>
+      ) : (
+        <>
+          <InfoRow label="Nombre completo" value={perfil?.name} />
+          <InfoRow label="Correo electrónico" value={perfil?.email} />
+        </>
+      )}
     </div>
   );
 }
@@ -191,101 +103,12 @@ function TabExpedientes({ expedientes, loading, navigate }) {
   );
 }
 
-function Toggle({ val, onChange }) {
-  return (
-    <button
-      onClick={() => onChange(!val)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${val ? "" : "bg-gray-200"}`}
-      style={val ? { backgroundColor: "#00ADCF" } : {}}
-    >
-      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${val ? "translate-x-5" : "translate-x-1"}`} />
-    </button>
-  );
-}
-
-function TabConfiguracion({ onCambiarPassword }) {
-  const [notifEmail,   setNotifEmail]   = useState(true);
-  const [notifSystem,  setNotifSystem]  = useState(true);
-  const [autoSave,     setAutoSave]     = useState(false);
-  const [pwForm, setPwForm]             = useState({ password_actual: "", password_nuevo: "", password_nuevo_confirmation: "" });
-  const [pwSaving, setPwSaving]         = useState(false);
-  const [pwMsg, setPwMsg]               = useState({ text: "", ok: true });
-
-  const handlePwChange = (e) => setPwForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handlePwSubmit = async () => {
-    setPwSaving(true);
-    setPwMsg({ text: "", ok: true });
-    const { ok, error } = await onCambiarPassword(pwForm);
-    setPwSaving(false);
-    if (ok) {
-      setPwMsg({ text: "Contraseña actualizada correctamente.", ok: true });
-      setPwForm({ password_actual: "", password_nuevo: "", password_nuevo_confirmation: "" });
-    } else {
-      setPwMsg({ text: error, ok: false });
-    }
-  };
-
-  return (
-    <div className="grid grid-cols-2 gap-6">
-      <div>
-        <div className="text-xs font-medium text-gray-700 mb-3 border-b border-gray-200 pb-1">Notificaciones</div>
-        <div className="flex flex-col gap-3">
-          {[
-            { label: "Notificaciones por correo",   desc: "Recibir alertas de expedientes asignados",        val: notifEmail,  set: setNotifEmail },
-            { label: "Notificaciones del sistema",  desc: "Alertas de cambios de estado en el sistema",      val: notifSystem, set: setNotifSystem },
-            { label: "Guardado automático",          desc: "Guardar borradores automáticamente cada 5 min",  val: autoSave,    set: setAutoSave },
-          ].map((item) => (
-            <div key={item.label} className="flex items-start justify-between gap-3 py-2 border-b border-gray-100">
-              <div>
-                <div className="text-xs text-gray-700">{item.label}</div>
-                <div className="text-xs text-gray-400">{item.desc}</div>
-              </div>
-              <Toggle val={item.val} onChange={item.set} />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <div className="text-xs font-medium text-gray-700 mb-3 border-b border-gray-200 pb-1">Seguridad</div>
-        <div className="flex flex-col gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Contraseña actual</label>
-            <input type="password" name="password_actual" value={pwForm.password_actual} onChange={handlePwChange}
-              className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]" placeholder="••••••••" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Nueva contraseña</label>
-            <input type="password" name="password_nuevo" value={pwForm.password_nuevo} onChange={handlePwChange}
-              className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]" placeholder="••••••••" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Confirmar nueva contraseña</label>
-            <input type="password" name="password_nuevo_confirmation" value={pwForm.password_nuevo_confirmation} onChange={handlePwChange}
-              className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF]" placeholder="••••••••" />
-          </div>
-          {pwMsg.text && (
-            <div className={`text-xs ${pwMsg.ok ? "text-green-600" : "text-red-600"}`}>{pwMsg.text}</div>
-          )}
-          <button
-            className="px-3 py-1.5 text-xs rounded text-white mt-1 self-start disabled:opacity-60"
-            style={{ backgroundColor: "#00ADCF" }}
-            onClick={handlePwSubmit}
-            disabled={pwSaving}
-          >
-            {pwSaving ? "Guardando…" : "Cambiar contraseña"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function Perfil() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("datos");
-  const { perfil, stats, expedientes, loading, error, update, cambiarPassword } = usePerfil();
+  const { perfil, stats, expedientes, loading, error } = usePerfil();
+  const { user } = useAuth();
+  const isAdmin = user?.email === "admin@cesvi.com";
 
   return (
     <div className="p-4 flex flex-col gap-4">
@@ -304,29 +127,21 @@ export default function Perfil() {
             : <div className="text-base text-gray-800">{perfil?.name ?? "—"}</div>}
           <div className="flex items-center gap-3 mt-1">
             <span className="text-xs bg-[#E0F7FA] text-[#00ADCF] px-2 py-0.5 rounded-full flex items-center gap-1">
-              <Shield size={11} /> {perfil?.especialidad ?? "Perito"}
+              <Shield size={11} /> {isAdmin ? "Administrador" : "Perito"}
             </span>
             {loading
               ? <Skeleton className="h-3 w-32" />
               : (
-                <>
-                  <span className="text-xs text-gray-500 flex items-center gap-1">
-                    <Mail size={11} /> {perfil?.email ?? "—"}
-                  </span>
-                  {perfil?.telefono && (
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <Phone size={11} /> {perfil.telefono}
-                    </span>
-                  )}
-                </>
+                <span className="text-xs text-gray-500 flex items-center gap-1">
+                  <Mail size={11} /> {perfil?.email ?? "—"}
+                </span>
               )}
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-2 gap-4 text-center">
           {[
-            { label: "Expedientes", val: stats?.expedientes,  color: "text-gray-800" },
-            { label: "Finalizados", val: stats?.finalizados,  color: "text-gray-800" },
-            { label: "Calificación",val: stats?.calificacion, color: "text-[#00ADCF]" },
+            { label: "Expedientes", val: stats?.expedientes, color: "text-gray-800" },
+            { label: "Finalizados", val: stats?.finalizados, color: "text-gray-800" },
           ].map((s) => (
             <div key={s.label}>
               {loading
@@ -342,9 +157,8 @@ export default function Perfil() {
       <div className="bg-white border border-gray-200 rounded shadow-sm">
         <div className="flex border-b border-gray-200">
           {[
-            { id: "datos",         label: "Datos Personales" },
-            { id: "expedientes",   label: "Mis Expedientes" },
-            { id: "configuracion", label: "Configuración" },
+            { id: "datos",       label: "Datos Personales" },
+            { id: "expedientes", label: "Mis Expedientes"  },
           ].map((t) => (
             <button
               key={t.id}
@@ -359,9 +173,8 @@ export default function Perfil() {
         </div>
 
         <div className="p-4">
-          {activeTab === "datos"         && <TabDatos         perfil={perfil}           loading={loading} onUpdate={update} />}
-          {activeTab === "expedientes"   && <TabExpedientes   expedientes={expedientes} loading={loading} navigate={navigate} />}
-          {activeTab === "configuracion" && <TabConfiguracion onCambiarPassword={cambiarPassword} />}
+          {activeTab === "datos"       && <TabDatos       perfil={perfil}           loading={loading} />}
+          {activeTab === "expedientes" && <TabExpedientes expedientes={expedientes} loading={loading} navigate={navigate} />}
         </div>
       </div>
     </div>

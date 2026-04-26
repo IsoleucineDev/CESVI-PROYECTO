@@ -1,8 +1,9 @@
 import { useLocation, useNavigate } from "react-router";
-import { LayoutGrid, User, ChevronRight } from "lucide-react";
+import { LayoutGrid, User } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "../../../hooks/useAuth";
 
-const PAGE_TITLES: Record<string, string> = {
+const PAGE_TITLES = {
   "/": "Dashboard",
   "/expedientes": "Expedientes RAT",
   "/expedientes/nuevo": "Nuevo Expediente",
@@ -10,7 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/perfil": "Mi Perfil",
 };
 
-function getTitle(pathname: string): string {
+function getTitle(pathname) {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
   if (pathname.startsWith("/expedientes/")) return "Detalle de Expediente";
   return "Dashboard";
@@ -20,6 +21,7 @@ export function Topbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const { user, logout } = useAuth();
 
   const title = getTitle(location.pathname);
 
@@ -54,8 +56,8 @@ export function Topbar() {
               />
               <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded shadow-lg z-50 w-48">
                 <div className="px-3 py-2 border-b border-gray-100">
-                  <p className="text-xs font-medium text-gray-800">Ing. Carlos Méndez</p>
-                  <p className="text-xs text-gray-500">Perito Senior</p>
+                  <p className="text-xs font-medium text-gray-800">{user?.name ?? "Usuario"}</p>
+                  <p className="text-xs text-gray-500">{user?.email ?? ""}</p>
                 </div>
                 <button
                   className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
@@ -65,7 +67,7 @@ export function Topbar() {
                 </button>
                 <button
                   className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                  onClick={() => { navigate("/login"); setShowUserMenu(false); }}
+                  onClick={() => { logout(); navigate("/login"); setShowUserMenu(false); }}
                 >
                   Cerrar Sesión
                 </button>

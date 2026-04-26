@@ -18,21 +18,41 @@ use Illuminate\Support\Str;
 
 class ExpedienteWizardController extends Controller
 {
-    private function lumenValidate(Request $request, array $rules): array
+    private function lumenValidate(Request $request, array $rules, array $messages = []): array
     {
-        $this->validate($request, $rules);
+        $defaultMessages = [
+            'required'        => 'El campo :attribute es obligatorio.',
+            'integer'         => 'El campo :attribute debe ser un número entero.',
+            'numeric'         => 'El campo :attribute debe ser un valor numérico.',
+            'min'             => 'El valor de :attribute no puede ser menor a :min.',
+            'max'             => 'El valor de :attribute no puede ser mayor a :max.',
+            'between'         => 'El valor de :attribute debe estar entre :min y :max.',
+            'string'          => 'El campo :attribute debe ser texto.',
+            'exists'          => 'El valor seleccionado para :attribute no es válido.',
+            'unique'          => 'El :attribute ya existe en el sistema.',
+            'date'            => 'El campo :attribute debe ser una fecha válida.',
+            'in'              => 'El valor de :attribute no es una opción permitida.',
+            'anio_modelo.min' => 'El año del vehículo no puede ser anterior a 1886.',
+            'anio_modelo.max' => 'El año del vehículo no puede ser mayor a 2028.',
+            'numero_mediciones.min' => 'El número de mediciones debe ser al menos 1.',
+            'numero_mediciones.max' => 'El número de mediciones no puede ser mayor a 20.',
+        ];
+        $this->validate($request, $rules, array_merge($defaultMessages, $messages));
         return $request->all();
     }
 
     public function storePaso1(Request $request): JsonResponse
     {
         $data = $this->lumenValidate($request, [
-            'numero_siniestro'  => 'required|string|max:100|unique:RAT_INCIDENTE,numero_siniestro',
-            'fecha_hecho'       => 'required|date',
-            'hora_hecho'        => 'nullable|date_format:H:i,H:i:s',
-            'tipo_hecho_id'     => 'required|exists:RAT_CAT_TIPO_HECHO,id',
-            'id_usuario_perito' => 'required|exists:sys_users,id_user',
-            'estado'            => 'sometimes|integer|in:0,1,2',
+            'numero_siniestro'         => 'required|string|max:100|unique:RAT_INCIDENTE,numero_siniestro',
+            'fecha_hecho'              => 'required|date|before_or_equal:today',
+            'hora_hecho'               => 'nullable|date_format:H:i,H:i:s',
+            'tipo_hecho_id'            => 'required|exists:RAT_CAT_TIPO_HECHO,id',
+            'tipo_hecho_descripcion'   => 'nullable|string|max:300',
+            'id_usuario_perito'        => 'required|exists:sys_users,id_user',
+            'estado'                   => 'sometimes|integer|in:0,1,2',
+        ], [
+            'fecha_hecho.before_or_equal' => 'La fecha del hecho no puede ser una fecha futura.',
         ]);
         $incidente = Incidente::create($data);
 
@@ -62,12 +82,13 @@ class ExpedienteWizardController extends Controller
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
         $data = $this->lumenValidate($request, [
-            'numero_siniestro'  => 'sometimes|string|max:100|unique:RAT_INCIDENTE,numero_siniestro,'.$incidente->id,
-            'fecha_hecho'       => 'sometimes|date',
-            'hora_hecho'        => 'nullable|date_format:H:i,H:i:s',
-            'tipo_hecho_id'     => 'sometimes|exists:RAT_CAT_TIPO_HECHO,id',
-            'id_usuario_perito' => 'sometimes|exists:sys_users,id_user',
-            'estado'            => 'sometimes|integer|in:0,1,2',
+            'numero_siniestro'         => 'sometimes|string|max:100|unique:RAT_INCIDENTE,numero_siniestro,'.$incidente->id,
+            'fecha_hecho'              => 'sometimes|date|before_or_equal:today',
+            'hora_hecho'               => 'nullable|date_format:H:i,H:i:s',
+            'tipo_hecho_id'            => 'sometimes|exists:RAT_CAT_TIPO_HECHO,id',
+            'tipo_hecho_descripcion'   => 'nullable|string|max:300',
+            'id_usuario_perito'        => 'sometimes|exists:sys_users,id_user',
+            'estado'                   => 'sometimes|integer|in:0,1,2',
         ]);
         $incidente->update($data);
         return response()->json(['message' => 'Paso 1 actualizado.', 'data' => $incidente]);
@@ -81,7 +102,7 @@ class ExpedienteWizardController extends Controller
             'marca'                     => 'required|string|max:100',
             'submarca'                  => 'nullable|string|max:100',
             'nombre_modelo'             => 'nullable|string|max:200',
-            'anio_modelo'               => 'required|integer',
+            'anio_modelo'               => 'required|integer|min:1886|max:2030',
             'tipo_vehiculo'             => 'required|in:ligero,pesado',
             'peso_tara_kg'              => 'nullable|numeric|min:0',
             'masa_maxima_autorizada_kg' => 'nullable|numeric|min:0',
@@ -184,7 +205,7 @@ class ExpedienteWizardController extends Controller
             'km_punto'                       => 'nullable|string|max:50',
             'lat'                            => 'nullable|numeric|between:-90,90',
             'lng'                            => 'nullable|numeric|between:-180,180',
-            'velocidad_maxima_permitida_kmh' => 'nullable|integer|min:0',
+            'velocidad_maxima_permitida_kmh' => 'nullable|numeric|min:0',
             'tipo_via_id'                    => 'nullable|exists:RAT_CAT_TIPO_VIA,id',
             'tipo_trazo_id'                  => 'nullable|exists:RAT_CAT_TIPO_TRAZO,id',
             'condicion_superficie_id'        => 'nullable|exists:RAT_CAT_CONDICION_SUPERFICIE,id',
@@ -283,12 +304,14 @@ class ExpedienteWizardController extends Controller
             'linea_referencia_mm'  => 'nullable|numeric|min:0',
         ]);
         $iv = $this->getIncidenteVehiculo($incidente);
-        if (!$iv) return response()->json(['message' => 'Completa el Paso 2 antes.'], 422);
+        if (!$iv) return response()->json(['message' => 'Completa el Paso 2 (Vehículo) antes de guardar la deformación.'], 422);
+        // c3_m es NOT NULL en el esquema; cuando se usan solo 2 mediciones se guarda 0
+        $data['c3_m'] = $data['c3_m'] ?? 0;
         DeformacionMedicion::updateOrCreate(
             ['incidente_vehiculo_id' => $iv->id],
             array_merge($data, ['incidente_vehiculo_id' => $iv->id])
         );
-        $mediciones = array_filter([$data['c1_m'], $data['c2_m'], $data['c3_m'], $data['c4_m'] ?? null, $data['c5_m'] ?? null, $data['c6_m'] ?? null], fn($v) => $v !== null);
+        $mediciones = array_filter([$data['c1_m'], $data['c2_m'], $data['c3_m'] ?? null, $data['c4_m'] ?? null, $data['c5_m'] ?? null, $data['c6_m'] ?? null], fn($v) => $v !== null);
         $dmed = count($mediciones) > 0 ? array_sum($mediciones) / count($mediciones) : 0;
         return response()->json(['message' => 'Paso 6 guardado.', 'dmed_calculado_m' => round($dmed, 4)]);
     }

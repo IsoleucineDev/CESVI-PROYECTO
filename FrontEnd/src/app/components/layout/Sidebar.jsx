@@ -5,26 +5,15 @@ import {
   FileText,
   Settings,
   User,
+  ShieldCheck,
   ChevronRight,
   ChevronLeft,
-  Database,
-  LogOut,
-  List,
-  Users,
-  BookOpen,
 } from "lucide-react";
+import { useAuth } from "../../../hooks/useAuth";
 
 const BRAND_COLOR = "#00ADCF";
 
-interface NavItem {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  path?: string;
-  children?: { label: string; path: string }[];
-}
-
-const NAV_ITEMS: NavItem[] = [
+const NAV_ITEMS = [
   {
     id: "dashboard",
     icon: <LayoutDashboard size={20} />,
@@ -54,17 +43,29 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+const ADMIN_ITEM = {
+  id: "admin",
+  icon: <ShieldCheck size={20} />,
+  label: "Administración",
+  children: [
+    { label: "Usuarios", path: "/admin/usuarios" },
+  ],
+};
+
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  const [tooltip, setTooltip] = useState<{ id: string; y: number } | null>(null);
+  const [openSubmenu, setOpenSubmenu] = useState(null);
+  const [tooltip, setTooltip] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const submenuRef = useRef<HTMLDivElement>(null);
+  const submenuRef = useRef(null);
+  const { user } = useAuth();
+  const isAdmin = user?.email === "admin@cesvi.com";
+  const navItems = isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (submenuRef.current && !submenuRef.current.contains(e.target as Node)) {
+    function handleClick(e) {
+      if (submenuRef.current && !submenuRef.current.contains(e.target)) {
         setOpenSubmenu(null);
       }
     }
@@ -72,7 +73,7 @@ export function Sidebar() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const isActive = (item: NavItem) => {
+  const isActive = (item) => {
     if (item.path) {
       if (item.path === "/") return location.pathname === "/";
       return location.pathname.startsWith(item.path);
@@ -83,7 +84,7 @@ export function Sidebar() {
     return false;
   };
 
-  const handleItemClick = (item: NavItem, e: React.MouseEvent) => {
+  const handleItemClick = (item, e) => {
     if (item.children) {
       setOpenSubmenu(openSubmenu === item.id ? null : item.id);
     } else if (item.path) {
@@ -110,7 +111,7 @@ export function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex flex-col gap-1 p-2 flex-1 relative" ref={submenuRef}>
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = isActive(item);
           return (
             <div key={item.id} className="relative">
@@ -118,7 +119,7 @@ export function Sidebar() {
                 onClick={(e) => handleItemClick(item, e)}
                 onMouseEnter={(e) => {
                   if (collapsed) {
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    const rect = e.currentTarget.getBoundingClientRect();
                     setTooltip({ id: item.id, y: rect.top });
                   }
                 }}
@@ -198,7 +199,7 @@ export function Sidebar() {
   );
 }
 
-function CesviLogo({ color }: { color: string }) {
+function CesviLogo({ color }) {
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
       <polygon

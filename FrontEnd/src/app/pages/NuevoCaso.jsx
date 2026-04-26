@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Check, ChevronLeft, ChevronRight,
-  Upload, X, AlertCircle, FileText, Trash2, ImageIcon,
+  Upload, X, AlertCircle, FileText, Trash2, ImageIcon, Maximize2, Minimize2, MapPin,
 } from "lucide-react";
 import {
   createIncidentePaso1,
@@ -69,10 +69,12 @@ function CatSel({ field, label, req, items, placeholder = "Seleccionar..." }) {
 // ── PASO 0: Incidente ─────────────────────────────────────────────────────────
 function StepIncidente() {
   const { form, setField, cats, user } = useForm();
+  const selectedTipo = (cats?.tipos_hecho ?? []).find((t) => String(t.id) === String(form.tipo_hecho_id));
+  const esOtro = selectedTipo?.nombre?.toLowerCase().includes("otro");
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label="Número de Siniestro" req>
-        <input className={inp} placeholder="RAT-2026-025"
+        <input className={inp} placeholder="RAT-2026-025" maxLength={100}
           value={form.numero_siniestro ?? ""}
           onChange={(e) => setField("numero_siniestro", e.target.value)} />
       </Field>
@@ -86,8 +88,11 @@ function StepIncidente() {
         />
       </Field>
       <Field label="Fecha del Hecho" req>
-        <input type="date" className={inp} value={form.fecha_hecho ?? ""}
+        <input type="date" className={inp}
+          max={new Date().toISOString().split("T")[0]}
+          value={form.fecha_hecho ?? ""}
           onChange={(e) => setField("fecha_hecho", e.target.value)} />
+        <span className="text-[10px] text-gray-400 mt-0.5 block">No puede ser una fecha futura</span>
       </Field>
       <Field label="Hora del Hecho">
         <input type="time" className={inp} value={form.hora_hecho ?? ""}
@@ -110,6 +115,19 @@ function StepIncidente() {
           <option value={2}>Finalizado</option>
         </select>
       </Field>
+      {esOtro && (
+        <div className="col-span-2">
+          <Field label="Descripción del tipo de hecho" req>
+            <input
+              className={inp}
+              placeholder="Describe el tipo de hecho (máx. 300 caracteres)"
+              maxLength={300}
+              value={form.tipo_hecho_descripcion ?? ""}
+              onChange={(e) => setField("tipo_hecho_descripcion", e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
     </div>
   );
 }
@@ -122,21 +140,22 @@ function StepVehiculo() {
     <div className="grid grid-cols-3 gap-4">
       <div className="col-span-3">
         <Field label="VIN / Número de Serie" req>
-          <input className={inp} placeholder="3VWFE21C04M000001"
+          <input className={inp} placeholder="3VWFE21C04M000001" maxLength={17}
             value={f("vin")} onChange={(e) => setField("vin", e.target.value)} />
         </Field>
       </div>
       <Field label="Marca" req>
-        <input className={inp} placeholder="Por llenar"
+        <input className={inp} placeholder="Por llenar" maxLength={100}
           value={f("marca")} onChange={(e) => setField("marca", e.target.value)} />
       </Field>
       <Field label="Submarca">
-        <input className={inp} placeholder="Por llenar"
+        <input className={inp} placeholder="Por llenar" maxLength={100}
           value={f("submarca")} onChange={(e) => setField("submarca", e.target.value)} />
       </Field>
-      <Field label="Año" req>
-        <input type="number" className={inp} placeholder="Por llenar"
+      <Field label="Año del modelo" req>
+        <input type="number" min="1886" max="2030" className={inp} placeholder="Ej: 2022"
           value={f("anio_modelo")} onChange={(e) => setField("anio_modelo", e.target.value)} />
+        <span className="text-[10px] text-gray-400 mt-0.5 block">Rango permitido: 1886 – 2030</span>
       </Field>
       <Field label="Tipo de Vehículo" req>
         <select className={sel} value={f("tipo_vehiculo")}
@@ -148,7 +167,7 @@ function StepVehiculo() {
       </Field>
       <CatSel field="color_id" label="Color" items={cats?.colores} />
       <Field label="Placas">
-        <input className={inp} placeholder="Por llenar"
+        <input className={inp} placeholder="Por llenar" maxLength={10}
           value={f("numero_placas")} onChange={(e) => setField("numero_placas", e.target.value)} />
       </Field>
       <Field label="Rol" req>
@@ -161,35 +180,35 @@ function StepVehiculo() {
       </Field>
       <CatSel field="estado_neumatico_id" label="Estado Neumático" items={cats?.estados_neumatico} />
       <Field label="Peso Tara (kg)">
-        <input type="number" className={inp} placeholder="Por llenar"
+        <input type="number" min="0" max="99999" step="0.01" className={inp} placeholder="Por llenar"
           value={f("peso_tara_kg")} onChange={(e) => setField("peso_tara_kg", e.target.value)} />
       </Field>
       <Field label="MMA (kg)">
-        <input type="number" className={inp} placeholder="Por llenar"
+        <input type="number" min="0" max="99999" step="0.01" className={inp} placeholder="Por llenar"
           value={f("masa_maxima_autorizada_kg")} onChange={(e) => setField("masa_maxima_autorizada_kg", e.target.value)} />
       </Field>
       <Field label="Ancho (mm)">
-        <input type="number" className={inp}
+        <input type="number" min="0" max="65535" className={inp}
           value={f("ancho_mm")} onChange={(e) => setField("ancho_mm", e.target.value)} />
       </Field>
       <Field label="Largo (mm)">
-        <input type="number" className={inp}
+        <input type="number" min="0" max="65535" className={inp}
           value={f("largo_mm")} onChange={(e) => setField("largo_mm", e.target.value)} />
       </Field>
       <Field label="Alto (mm)">
-        <input type="number" className={inp}
+        <input type="number" min="0" max="65535" className={inp}
           value={f("alto_mm")} onChange={(e) => setField("alto_mm", e.target.value)} />
       </Field>
       <Field label="Batalla (mm)">
-        <input type="number" className={inp}
+        <input type="number" min="0" max="65535" className={inp}
           value={f("batalla_mm")} onChange={(e) => setField("batalla_mm", e.target.value)} />
       </Field>
       <Field label="Entrevía Delantera (mm)">
-        <input type="number" className={inp}
+        <input type="number" min="0" max="65535" className={inp}
           value={f("entrevia_delantera_mm")} onChange={(e) => setField("entrevia_delantera_mm", e.target.value)} />
       </Field>
       <Field label="Entrevía Trasera (mm)">
-        <input type="number" className={inp}
+        <input type="number" min="0" max="65535" className={inp}
           value={f("entrevia_trasera_mm")} onChange={(e) => setField("entrevia_trasera_mm", e.target.value)} />
       </Field>
     </div>
@@ -213,17 +232,17 @@ function StepOcupantes() {
             onChange={(e) => setField("numero_ocupantes", e.target.value)} />
         </Field>
         <Field label="Peso del Conductor (kg)" req>
-          <input type="number" className={inp}
+          <input type="number" min="0" max="999" step="0.01" className={inp}
             value={form.peso_conductor_kg ?? "75"}
             onChange={(e) => setField("peso_conductor_kg", e.target.value)} />
         </Field>
         <Field label="Peso Total de Pasajeros (kg)">
-          <input type="number" className={inp}
+          <input type="number" min="0" max="999" step="0.01" className={inp}
             value={form.peso_pasajeros_kg ?? "0"}
             onChange={(e) => setField("peso_pasajeros_kg", e.target.value)} />
         </Field>
         <Field label="Peso de Equipaje / Carga (kg)">
-          <input type="number" className={inp}
+          <input type="number" min="0" max="999" step="0.01" className={inp}
             value={form.peso_equipaje_kg ?? "0"}
             onChange={(e) => setField("peso_equipaje_kg", e.target.value)} />
         </Field>
@@ -253,26 +272,196 @@ function StepOcupantes() {
   );
 }
 
+// ── Mapa Leaflet ──────────────────────────────────────────────────────────────
+function MapaPicker({ lat, lng, onLocationChange }) {
+  const containerRef   = useRef(null);
+  const mapRef         = useRef(null);
+  const markerRef      = useRef(null);
+  const mountedRef     = useRef(true);
+  const [expanded, setExpanded]           = useState(false);
+  const [pendingLoc, setPendingLoc]       = useState(null); // {lat, lng, geo}
+  const [showHint, setShowHint]           = useState(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    let timer = null;
+    const initMap = () => {
+      if (!mountedRef.current || !containerRef.current || mapRef.current) return;
+      const L = window.L;
+      if (!L) { timer = setTimeout(initMap, 300); return; }
+      const initLat = parseFloat(lat) || 19.4326;
+      const initLng = parseFloat(lng) || -99.1332;
+      const zoom    = (lat && lng) ? 15 : 5;
+      const map = L.map(containerRef.current).setView([initLat, initLng], zoom);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+      if (lat && lng && !isNaN(initLat) && !isNaN(initLng)) {
+        markerRef.current = L.marker([initLat, initLng]).addTo(map);
+      }
+      map.on("click", async (e) => {
+        if (!mountedRef.current) return;
+        const { lat: clat, lng: clng } = e.latlng;
+        if (markerRef.current) {
+          markerRef.current.setLatLng([clat, clng]);
+        } else {
+          markerRef.current = L.marker([clat, clng]).addTo(map);
+        }
+        let geo = null;
+        try {
+          const resp = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${clat}&lon=${clng}&accept-language=es`
+          );
+          geo = await resp.json();
+        } catch {}
+        if (mountedRef.current) setPendingLoc({ lat: clat, lng: clng, geo });
+      });
+      mapRef.current = map;
+    };
+    initMap();
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timer);
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const L   = window.L;
+    if (!map || !L) return;
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+      if (markerRef.current) {
+        markerRef.current.setLatLng([parsedLat, parsedLng]);
+      } else {
+        markerRef.current = L.marker([parsedLat, parsedLng]).addTo(map);
+      }
+      if (!map.getBounds().contains([parsedLat, parsedLng])) {
+        map.setView([parsedLat, parsedLng], 15);
+      }
+    }
+  }, [lat, lng]);
+
+  useEffect(() => {
+    if (mapRef.current) setTimeout(() => mapRef.current?.invalidateSize(), 50);
+  }, [expanded]);
+
+  const handleConfirm = () => {
+    if (pendingLoc) {
+      onLocationChange(pendingLoc.lat, pendingLoc.lng, pendingLoc.geo);
+      setPendingLoc(null);
+    }
+  };
+
+  const addr = pendingLoc?.geo?.address;
+  const lugar = addr
+    ? [addr.road || addr.suburb, addr.city || addr.town || addr.village || addr.municipality, addr.state]
+        .filter(Boolean).join(", ")
+    : null;
+
+  return (
+    <div className="relative">
+      {/* Instrucciones */}
+      {showHint && (
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-white/90 border border-gray-200 rounded px-2.5 py-1.5 text-xs text-gray-600 shadow-sm">
+          <MapPin size={12} style={{ color: "#00ADCF" }} />
+          <span>Rueda = zoom · Arrastra = navegar · Clic = marcar</span>
+          <button type="button" onClick={() => setShowHint(false)} className="text-gray-400 hover:text-gray-600 ml-1">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
+      {/* Botón fullscreen */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="absolute top-2 right-2 z-10 bg-white/90 border border-gray-200 rounded p-1.5 text-gray-500 hover:text-[#00ADCF] shadow-sm"
+        title={expanded ? "Reducir mapa" : "Ampliar mapa"}
+      >
+        {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+      </button>
+
+      {/* Mapa */}
+      <div
+        ref={containerRef}
+        style={{ height: expanded ? 480 : 280, width: "100%", borderRadius: 6, border: "1px solid #e5e7eb", transition: "height 0.2s ease" }}
+      />
+
+      {/* Diálogo de confirmación de ubicación */}
+      {pendingLoc && (
+        <div className="absolute inset-0 z-20 flex items-end justify-center pb-4" style={{ pointerEvents: "none" }}>
+          <div className="bg-white rounded shadow-lg border border-gray-200 px-4 py-3 mx-2 w-full max-w-sm" style={{ pointerEvents: "auto" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin size={14} style={{ color: "#00ADCF" }} />
+              <span className="text-xs font-medium text-gray-700">¿Confirmar ubicación seleccionada?</span>
+            </div>
+            <div className="text-xs text-gray-500 mb-1">
+              <span className="font-medium">Lat:</span> {pendingLoc.lat.toFixed(6)} &nbsp;
+              <span className="font-medium">Lng:</span> {pendingLoc.lng.toFixed(6)}
+            </div>
+            {lugar && <div className="text-xs text-gray-600 mb-3">{lugar}</div>}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingLoc(null)}
+                className="px-3 py-1 text-xs border border-gray-300 rounded text-gray-600 hover:border-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                className="px-3 py-1 text-xs text-white rounded"
+                style={{ backgroundColor: "#00ADCF" }}
+              >
+                Sí, agregar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── PASO 3: Vía ───────────────────────────────────────────────────────────────
 function StepVia() {
   const { form, setField, cats } = useForm();
   const f = (k) => form[k] ?? "";
+
+  const handleMapLocation = useCallback((clat, clng, geo) => {
+    setField("lat", String(parseFloat(clat.toFixed(6))));
+    setField("lng", String(parseFloat(clng.toFixed(6))));
+    if (geo?.address) {
+      const addr  = geo.address;
+      const city  = addr.city || addr.town || addr.village || addr.municipality || addr.county;
+      const state = addr.state;
+      const road  = addr.road || addr.suburb || addr.neighbourhood;
+      if (city) setField("municipio", state ? `${city}, ${state}` : city);
+      if (road) setField("calle", road);
+    }
+  }, [setField]);
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label="Km / Punto de Referencia">
-        <input className={inp} placeholder="Por llenar"
+        <input className={inp} placeholder="Por llenar" maxLength={100}
           value={f("km_punto")} onChange={(e) => setField("km_punto", e.target.value)} />
       </Field>
       <Field label="Municipio / Estado" req>
-        <input className={inp} placeholder="Por llenar"
+        <input className={inp} placeholder="Por llenar" maxLength={200}
           value={f("municipio")} onChange={(e) => setField("municipio", e.target.value)} />
       </Field>
       <Field label="Calle / Referencia">
-        <input className={inp} placeholder="Por llenar"
+        <input className={inp} placeholder="Por llenar" maxLength={200}
           value={f("calle")} onChange={(e) => setField("calle", e.target.value)} />
       </Field>
       <Field label="Velocidad Máxima Permitida (km/h)" req>
-        <input type="number" className={inp} placeholder="Por llenar"
+        <input type="number" min="0" max="300" className={inp} placeholder="Por llenar"
           value={f("velocidad_maxima_permitida_kmh")}
           onChange={(e) => setField("velocidad_maxima_permitida_kmh", e.target.value)} />
       </Field>
@@ -284,14 +473,18 @@ function StepVia() {
       <CatSel field="clima_id"                label="Clima"                   items={cats?.climas} />
       <CatSel field="orientacion_id"          label="Orientación de Vía"      items={cats?.orientaciones_via} />
       <CatSel field="sentido_vialidad_id"     label="Sentido de Vialidad"     items={cats?.sentidos_vialidad} />
-      <Field label="Lat">
-        <input type="number" step="0.000001" className={inp} placeholder="Por llenar"
+      <Field label="Latitud">
+        <input type="number" step="0.000001" className={inp} placeholder="Ej: 19.432600"
           value={f("lat")} onChange={(e) => setField("lat", e.target.value)} />
       </Field>
-      <Field label="Lng">
-        <input type="number" step="0.000001" className={inp} placeholder="Por llenar"
+      <Field label="Longitud">
+        <input type="number" step="0.000001" className={inp} placeholder="Ej: -99.133200"
           value={f("lng")} onChange={(e) => setField("lng", e.target.value)} />
       </Field>
+      <div className="col-span-2">
+        <div className="text-xs text-gray-500 mb-1">Haz clic en el mapa para colocar el marcador — se rellenarán los campos automáticamente</div>
+        <MapaPicker lat={f("lat")} lng={f("lng")} onLocationChange={handleMapLocation} />
+      </div>
     </div>
   );
 }
@@ -300,25 +493,69 @@ function StepVia() {
 const GRUPO_SIZE = 10;
 
 function FotoCard({ foto, tipoNombre, onDelete }) {
-  const [err, setErr] = useState(false);
+  const [err, setErr]           = useState(false);
+  const [lightbox, setLightbox] = useState(false);
   return (
-    <div className="relative group rounded border border-gray-200 overflow-hidden bg-gray-50">
-      {err ? (
-        <div className="w-full h-28 flex flex-col items-center justify-center text-gray-300 gap-1">
-          <ImageIcon size={22} />
-          <span className="text-xs">Sin vista previa</span>
+    <>
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={() => setLightbox(false)}
+        >
+          <img
+            src={foto.previewUrl}
+            alt={tipoNombre}
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80"
+            onClick={() => setLightbox(false)}
+          >
+            <X size={20} />
+          </button>
         </div>
-      ) : (
-        <img src={foto.previewUrl} alt="" className="w-full h-28 object-cover"
-          onError={() => setErr(true)} />
       )}
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-        <button onClick={() => onDelete(foto)}
-          className="bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600">
-          <Trash2 size={13} />
-        </button>
+      <div className="relative group rounded border border-gray-200 overflow-hidden bg-gray-50">
+        {err ? (
+          <div className="w-full h-28 flex flex-col items-center justify-center text-gray-300 gap-1">
+            <ImageIcon size={22} />
+            <span className="text-xs">Sin vista previa</span>
+            <button onClick={() => onDelete(foto)}
+              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 z-10">
+              <Trash2 size={11} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <img
+              src={foto.previewUrl}
+              alt=""
+              className="w-full h-28 object-cover cursor-pointer"
+              onClick={() => setLightbox(true)}
+              onError={() => setErr(true)}
+            />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLightbox(true)}
+                className="bg-white/20 text-white rounded-full p-1.5 hover:bg-white/40"
+                title="Ver imagen"
+              >
+                <Maximize2 size={13} />
+              </button>
+              <button
+                onClick={() => onDelete(foto)}
+                className="bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600"
+                title="Eliminar"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -470,13 +707,8 @@ function StepEvidencia() {
 // ── PASO 5: Deformación ───────────────────────────────────────────────────────
 function StepDeformacion() {
   const { form, setField, cats } = useForm();
-  const numMed = parseInt(
-    form.numero_mediciones_id
-      ? (cats?.numeros_mediciones ?? []).find((c) => String(c.id) === String(form.numero_mediciones_id))?.nombre ?? "6"
-      : "6",
-    10
-  );
-  const campos  = isNaN(numMed) ? 6 : numMed;
+  const numMed  = parseInt(form.numero_mediciones ?? "6", 10);
+  const campos  = isNaN(numMed) || numMed < 1 ? 6 : Math.min(numMed, 20);
   const cLabels = Array.from({ length: campos }, (_, i) => `C${i + 1}`);
   const dmed = (() => {
     const vals = cLabels.map((c) => Number(form[`medicion_${c}`] || 0)).filter((v) => v > 0);
@@ -487,10 +719,18 @@ function StepDeformacion() {
   return (
     <div className="grid grid-cols-3 gap-4">
       <div className="col-span-3 grid grid-cols-3 gap-4 bg-gray-50 border border-gray-200 rounded p-3">
-        <CatSel field="tipo_golpe_id"       label="Tipo de Golpe"        req items={cats?.tipos_golpe} />
-        <CatSel field="numero_mediciones_id" label="Número de Mediciones" req items={cats?.numeros_mediciones} />
+        <CatSel field="tipo_golpe_id" label="Tipo de Golpe" req items={cats?.tipos_golpe} />
+        <Field label="Número de Mediciones" req>
+          <select className={sel} value={form.numero_mediciones ?? ""}
+            onChange={(e) => setField("numero_mediciones", e.target.value)}>
+            <option value="">Seleccionar...</option>
+            <option value="2">2</option>
+            <option value="4">4</option>
+            <option value="6">6</option>
+          </select>
+        </Field>
         <Field label="Línea de Referencia (mm)">
-          <input type="number" className={inp} placeholder="Por llenar"
+          <input type="number" min="0" max="65535" className={inp} placeholder="Por llenar"
             value={form.linea_referencia_mm ?? ""}
             onChange={(e) => setField("linea_referencia_mm", e.target.value)} />
         </Field>
@@ -509,7 +749,7 @@ function StepDeformacion() {
         <div className="grid grid-cols-2 gap-3">
           {cLabels.map((c) => (
             <Field key={c} label={`${c} (mm)`} req>
-              <input type="number" className={inp}
+              <input type="number" min="0" max="99999" step="0.1" className={inp}
                 value={form[`medicion_${c}`] ?? ""}
                 onChange={(e) => setField(`medicion_${c}`, e.target.value)}
                 placeholder="Por llenar" />
@@ -521,12 +761,12 @@ function StepDeformacion() {
       <div className="col-span-1 flex flex-col gap-3">
         <div className="text-xs text-gray-600 border-b border-gray-200 pb-1">Variables adicionales</div>
         <Field label="Ancho de contacto L (m)" req>
-          <input type="number" className={inp} placeholder="0.0"
+          <input type="number" min="0" max="999.999" step="0.001" className={inp} placeholder="0.0"
             value={form.l_ancho_contacto_m ?? ""}
             onChange={(e) => setField("l_ancho_contacto_m", e.target.value)} />
         </Field>
         <Field label="Ángulo FPI (°)">
-          <input type="number" className={inp} placeholder="0.0"
+          <input type="number" min="-90" max="90" step="0.01" className={inp} placeholder="0.0"
             value={form.angulo_fpi_grados ?? ""}
             onChange={(e) => setField("angulo_fpi_grados", e.target.value)} />
         </Field>
@@ -543,33 +783,93 @@ function StepDeformacion() {
 // ── PASO 6: Cálculo ───────────────────────────────────────────────────────────
 function StepCalculo() {
   const { form, setField } = useForm();
+  const [calcError, setCalcError] = React.useState("");
+
   const params = [
-    { label: "Coeficiente A (N/m)",               key: "a_rigidez_n_m" },
-    { label: "Coeficiente B (N/m²)",              key: "b_rigidez_n_m2" },
-    { label: "Dmed (m)",                           key: "dmed_m" },
-    { label: "Tiempo reacción frenos (s)",         key: "tiempo_respuesta_frenos_s" },
-    { label: "Velocidad final post-impacto (km/h)",key: "velocidad_final_kmh" },
+    { label: "Coeficiente A (N/m)",                key: "a_rigidez_n_m",             hint: "Rigidez longitudinal del vehículo",                          min: 0 },
+    { label: "Coeficiente B (N/m²)",               key: "b_rigidez_n_m2",            hint: "Rigidez no lineal del vehículo",                             min: 0 },
+    { label: "Dmed — promedio de deformación (m)",  key: "dmed_m",                    hint: "Media de las mediciones Ci (auto-completado desde paso anterior)", min: 0, max: 99.9999, step: 0.0001 },
+    { label: "Tiempo de respuesta frenos (s)",      key: "tiempo_respuesta_frenos_s", hint: "Tiempo entre reacción y bloqueo de frenos",                  min: 0, max: 99.99, step: 0.01 },
+    { label: "Velocidad final post-impacto (km/h)", key: "velocidad_final_kmh",       hint: "Velocidad del vehículo al detenerse tras el impacto",        min: 0, max: 300,   step: 0.01 },
   ];
   const resultados = [
-    { label: "Energía deformación Ed (kJ)",   key: "e_deformacion_julios" },
-    { label: "Energía corregida (kJ)",        key: "e_def_corregida_julios" },
-    { label: "EBS (m/s)",                     key: "ebs_m_s" },
-    { label: "Vel. impacto Vi (km/h)",        key: "velocidad_impacto_kmh" },
-    { label: "Vel. pre-impacto (km/h)",       key: "velocidad_pre_impacto_kmh" },
-    { label: "Vel. Limpert (km/h)",           key: "velocidad_limpert_kmh" },
-    { label: "Exceso de velocidad (km/h)",    key: "delta_exceso_kmh" },
+    { label: "Energía de deformación Ed (J)",                     key: "e_deformacion_julios",      formula: "Ed = A·L·Dmed + B·L·Dmed²/2" },
+    { label: "Energía corregida por ángulo (J)",                  key: "e_def_corregida_julios",    formula: "E_corr = Ed × (1 + tan α)²" },
+    { label: "EBS — Velocidad equivalente de barrera (m/s)",      key: "ebs_m_s",                   formula: "EBS = √(2 × E_corr / m)" },
+    { label: "Velocidad de impacto Vi (km/h)",                    key: "velocidad_impacto_kmh",     formula: "Vi = EBS × 3.6  ← velocidad al momento del choque" },
+    { label: "Velocidad pre-impacto Vp (km/h)",                   key: "velocidad_pre_impacto_kmh", formula: "Vp = √(Vi² + Vf²)  ← velocidad antes de frenar" },
+    { label: "Verificación Limpert (km/h)",                       key: "velocidad_limpert_kmh",     formula: "VL = 4.4 × Dmed(cm) + 0.32" },
+    { label: "Exceso sobre velocidad máxima (km/h)",              key: "delta_exceso_kmh",          formula: "Δv = Vf − V_máx_permitida" },
   ];
+
+  const handleCalcular = () => {
+    const A     = parseFloat(form.a_rigidez_n_m)   || 0;
+    const B     = parseFloat(form.b_rigidez_n_m2)  || 0;
+    const L     = parseFloat(form.l_ancho_contacto_m) || 0;
+    const Dmed  = parseFloat(form.dmed_m)           || 0;
+    const alpha = parseFloat(form.angulo_fpi_grados) || 0;
+    const Vf    = parseFloat(form.velocidad_final_kmh) || 0;
+    const Vmax  = parseFloat(form.velocidad_maxima_permitida_kmh) || 0;
+    const m     = (parseFloat(form.peso_tara_kg)     || 0)
+                + (parseFloat(form.peso_conductor_kg) || 0)
+                + (parseFloat(form.peso_pasajeros_kg) || 0)
+                + (parseFloat(form.peso_equipaje_kg)  || 0);
+
+    if (!A || !B || !Dmed) {
+      setCalcError("Se necesitan los coeficientes A, B y el Dmed para calcular.");
+      return;
+    }
+    if (!L) {
+      setCalcError("Ingresa el Ancho de contacto L en el paso de Deformación para calcular.");
+      return;
+    }
+    if (!m) {
+      setCalcError("Ingresa el Peso Tara del vehículo en el paso Vehículo para calcular EBS.");
+      return;
+    }
+    setCalcError("");
+
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const r4 = (v) => Math.round(v * 10000) / 10000;
+
+    const Ed    = A * L * Dmed + B * L * (Dmed ** 2) / 2;
+    const tanA  = Math.tan((alpha * Math.PI) / 180);
+    const Ecorr = Ed * (1 + tanA) ** 2;
+    const EBS   = Ecorr > 0 ? Math.sqrt((2 * Ecorr) / m) : 0;
+    const Vi    = EBS * 3.6;
+    const Vp    = Math.sqrt(Vi ** 2 + Vf ** 2);
+    const VL    = 4.4 * (Dmed * 100) + 0.32;
+    const delta = r2(Vf - Vmax);
+
+    setField("e_deformacion_julios",      r2(Ed));
+    setField("e_def_corregida_julios",    r2(Ecorr));
+    setField("ebs_m_s",                   r4(EBS));
+    setField("velocidad_impacto_kmh",     r2(Vi));
+    setField("velocidad_pre_impacto_kmh", r2(Vp));
+    setField("velocidad_limpert_kmh",     r2(VL));
+    setField("delta_exceso_kmh",          delta);
+  };
+
+  const datosIncompletos = !form.a_rigidez_n_m && !form.b_rigidez_n_m2 && !form.dmed_m;
   const hayExceso = Number(form.delta_exceso_kmh) > 0;
+  const velRelevante = form.velocidad_pre_impacto_kmh || form.velocidad_impacto_kmh || form.velocidad_final_kmh;
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <div>
         <div className="text-xs text-gray-600 border-b border-gray-200 pb-1 mb-3">Parámetros de entrada</div>
         <div className="flex flex-col gap-2">
           {params.map((v) => (
-            <div key={v.label} className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 w-52 shrink-0">{v.label}</label>
-              <input className={inp} value={form[v.key] ?? ""}
-                onChange={(e) => setField(v.key, e.target.value)} />
+            <div key={v.key}>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500 w-56 shrink-0">{v.label}</label>
+                <input type="number" className={inp} value={form[v.key] ?? ""}
+                  onChange={(e) => setField(v.key, e.target.value)}
+                  {...(v.min  !== undefined && { min:  v.min  })}
+                  {...(v.max  !== undefined && { max:  v.max  })}
+                  {...(v.step !== undefined && { step: v.step })} />
+              </div>
+              <div className="text-[10px] text-gray-400 ml-0 mt-0.5 pl-0">{v.hint}</div>
             </div>
           ))}
         </div>
@@ -577,30 +877,83 @@ function StepCalculo() {
       <div>
         <div className="text-xs text-gray-600 border-b border-gray-200 pb-1 mb-3 flex items-center gap-2">
           Resultados calculados
-          <span className="text-xs bg-green-100 text-green-700 px-1.5 rounded">Automático</span>
+          <button
+            type="button"
+            onClick={handleCalcular}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1 text-xs text-white rounded"
+            style={{ backgroundColor: "#00ADCF" }}
+          >
+            <FileText size={12} /> Calcular
+          </button>
         </div>
+
+        {calcError && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded px-3 py-2 text-xs text-red-700 mb-3">
+            <AlertCircle size={13} className="mt-0.5 shrink-0" /> {calcError}
+          </div>
+        )}
+
+        {datosIncompletos ? (
+          <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded px-3 py-3 mb-3">
+            <AlertCircle size={14} className="text-yellow-600 mt-0.5 shrink-0" />
+            <div>
+              <div className="text-xs font-medium text-yellow-800">Datos incompletos para realizar el cálculo</div>
+              <div className="text-[11px] text-yellow-700 mt-0.5">Ingresa los coeficientes A, B y el Dmed, luego presiona "Calcular".</div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-2">
           {resultados.map((v) => (
-            <div key={v.label} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-1.5">
-              <span className="text-xs text-gray-600">{v.label}</span>
-              <input
-                className="text-xs font-semibold text-[#00ADCF] bg-transparent border-none outline-none w-20 text-right"
-                value={form[v.key] ?? ""}
-                onChange={(e) => setField(v.key, e.target.value)}
-              />
+            <div key={v.key} className="bg-gray-50 border border-gray-200 rounded px-3 py-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-700 font-medium">{v.label}</span>
+                <input
+                  className="text-xs font-semibold text-[#00ADCF] bg-transparent border-none outline-none w-20 text-right"
+                  value={form[v.key] ?? ""}
+                  onChange={(e) => setField(v.key, e.target.value)}
+                />
+              </div>
+              <div className="text-[10px] text-gray-400 font-mono mt-0.5">{v.formula}</div>
             </div>
           ))}
         </div>
+
         <div className="mt-4 p-3 border rounded" style={{ borderColor: "#00ADCF", backgroundColor: "#E0F7FA" }}>
           <div className="text-xs text-gray-600 mb-1">Diagnóstico de velocidad</div>
           {hayExceso ? (
-            <div className="flex items-center gap-2">
-              <span className="text-red-600 font-semibold text-sm">EXCESO DETECTADO</span>
-              <span className="text-xs text-red-500">+{form.delta_exceso_kmh} km/h</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-red-600 font-semibold text-sm">EXCESO DETECTADO</span>
+                <span className="text-xs text-red-500 font-medium">+{form.delta_exceso_kmh} km/h sobre el límite</span>
+              </div>
+              {velRelevante && (
+                <div className="text-xs text-gray-600 mt-1">Velocidad calculada: <span className="font-semibold text-gray-800">{velRelevante} km/h</span></div>
+              )}
             </div>
           ) : (
-            <span className="text-green-600 font-semibold text-sm">Sin exceso de velocidad</span>
+            <div>
+              <span className="text-green-600 font-semibold text-sm">Sin exceso de velocidad</span>
+              {velRelevante && (
+                <div className="text-xs text-gray-600 mt-1">Velocidad calculada: <span className="font-semibold text-gray-800">{velRelevante} km/h</span></div>
+              )}
+            </div>
           )}
+        </div>
+
+        <div className="mt-3 border border-dashed border-[#00ADCF]/40 rounded p-3 bg-[#E0F7FA]">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="font-medium text-xs" style={{ color: "#00ADCF" }}>✦ Análisis con Inteligencia Artificial</span>
+            <span className="text-[10px] bg-white text-[#00ADCF] px-1.5 rounded-full border border-[#00ADCF]/30">Próximamente</span>
+          </div>
+          <p className="text-[11px] text-gray-600 leading-relaxed mb-2">
+            Análisis automático con IA para cálculo de velocidades y diagnóstico de colisiones a partir de los datos ingresados.
+          </p>
+          <button disabled
+            className="w-full py-1.5 text-xs rounded border border-[#00ADCF]/40 bg-white cursor-not-allowed opacity-60"
+            style={{ color: "#00ADCF" }}>
+            Iniciar análisis con IA
+          </button>
         </div>
       </div>
     </div>
@@ -608,27 +961,47 @@ function StepCalculo() {
 }
 
 // ── PASO 7: Narrativa ─────────────────────────────────────────────────────────
+const OBJETOS_CONOCIDOS = ["Vehículo automotor","Barra de contención (Jersey)","Poste de alumbrado","Árbol","Peatón","Motocicleta"];
+
 function StepNarrativa() {
   const { form, setField } = useForm();
+  const [otroActivo, setOtroActivo] = React.useState(
+    !!form.objeto_involucrado && !OBJETOS_CONOCIDOS.includes(form.objeto_involucrado)
+  );
+  const selVal = otroActivo ? "__otro__" : (form.objeto_involucrado ?? "");
+
+  const handleObjeto = (val) => {
+    if (val === "__otro__") {
+      setOtroActivo(true);
+      setField("objeto_involucrado", "");
+    } else {
+      setOtroActivo(false);
+      setField("objeto_involucrado", val);
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="flex flex-col gap-4">
         <Field label="Objeto involucrado" req>
-          <select className={sel} value={form.objeto_involucrado ?? ""}
-            onChange={(e) => setField("objeto_involucrado", e.target.value)}>
+          <select className={sel} value={selVal} onChange={(e) => handleObjeto(e.target.value)}>
             <option value="">Seleccionar...</option>
-            {["Vehículo automotor","Barra de contención (Jersey)","Poste de alumbrado","Árbol","Peatón","Motocicleta"].map((d) => (
-              <option key={d}>{d}</option>
-            ))}
+            {OBJETOS_CONOCIDOS.map((d) => <option key={d} value={d}>{d}</option>)}
+            <option value="__otro__">Otro (especificar)</option>
           </select>
+          {otroActivo && (
+            <input className={`${inp} mt-2`} placeholder="Describa el objeto involucrado..." maxLength={200}
+              value={form.objeto_involucrado ?? ""}
+              onChange={(e) => setField("objeto_involucrado", e.target.value)} />
+          )}
         </Field>
         <Field label="Descripción del objeto fijo">
-          <input className={inp} placeholder="Ej: Barra de contención metálica tipo Jersey"
+          <input className={inp} placeholder="Ej: Barra de contención metálica tipo Jersey" maxLength={200}
             value={form.descripcion_objeto_fijo ?? ""}
             onChange={(e) => setField("descripcion_objeto_fijo", e.target.value)} />
         </Field>
         <Field label="Posición final del vehículo">
-          <input className={inp} placeholder="Ej: Carril derecho, orientación norte-sur"
+          <input className={inp} placeholder="Ej: Carril derecho, orientación norte-sur" maxLength={300}
             value={form.posicion_final_vehiculo ?? ""}
             onChange={(e) => setField("posicion_final_vehiculo", e.target.value)} />
         </Field>
@@ -641,17 +1014,17 @@ function StepNarrativa() {
           </select>
         </Field>
         <Field label="Distancia PPR al PC (m)">
-          <input type="number" step="0.1" className={inp}
+          <input type="number" min="0" max="9999.9" step="0.1" className={inp}
             value={form.distancia_ppr_al_pc_m ?? ""}
             onChange={(e) => setField("distancia_ppr_al_pc_m", e.target.value)} />
         </Field>
         <Field label="Tiempo de reacción conductor (s)">
-          <input type="number" step="0.01" className={inp}
+          <input type="number" min="0" max="99.99" step="0.01" className={inp}
             value={form.tiempo_reaccion_conductor_s ?? ""}
             onChange={(e) => setField("tiempo_reaccion_conductor_s", e.target.value)} />
         </Field>
         <Field label="Huellas de derrape (m)">
-          <input type="number" step="0.1" className={inp}
+          <input type="number" min="0" max="9999.9" step="0.1" className={inp}
             value={form.huellas_derrape_m ?? ""}
             onChange={(e) => setField("huellas_derrape_m", e.target.value)} />
         </Field>
@@ -716,16 +1089,7 @@ function StepReporte() {
             </div>
           ))}
         </div>
-        <div className="flex flex-col gap-2 mt-2">
-          <button onClick={() => setField("accion", "validar")}
-            className="w-full py-2 text-xs rounded text-white" style={{ backgroundColor: "#00ADCF" }}>
-            Validar Conclusiones
-          </button>
-          <button onClick={() => setField("accion", "emitir")}
-            className="w-full py-2 text-xs rounded border border-yellow-400 text-yellow-700 hover:bg-yellow-50">
-            Enviar a Revisión
-          </button>
-        </div>
+
       </div>
     </div>
   );
@@ -746,6 +1110,7 @@ export default function NuevoCaso() {
   const [peritos, setPeritos]             = useState([]);
   const [loadingEdit, setLoadingEdit]     = useState(editMode);
   const [fotos, setFotos]                 = useState([]);
+  const [pendingStep, setPendingStep]     = useState(null);
 
   const [form, setFormState] = useState({
     numero_siniestro: "", tipo_hecho_id: "", fecha_hecho: "",
@@ -771,6 +1136,35 @@ export default function NuevoCaso() {
       .catch(() => {});
   }, []);
 
+  // Resolver numero_mediciones (texto libre) a partir del ID del catálogo al cargar en modo edición
+  useEffect(() => {
+    if (!cats || !form.numero_mediciones_id || form.numero_mediciones) return;
+    const entry = (cats.numeros_mediciones ?? []).find(
+      (c) => String(c.id) === String(form.numero_mediciones_id)
+    );
+    if (entry) setField("numero_mediciones", entry.nombre);
+  }, [cats, form.numero_mediciones_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll al inicio del contenido al cambiar de paso
+  useEffect(() => {
+    const main = document.querySelector("main");
+    if (main) main.scrollTop = 0;
+  }, [step]);
+
+  // Auto-fill dmed al entrar al paso de cálculo si aún no tiene valor
+  useEffect(() => {
+    if (step !== 6) return;
+    if (form.dmed_m) return;
+    const cVals = [form.medicion_C1, form.medicion_C2, form.medicion_C3,
+                   form.medicion_C4, form.medicion_C5, form.medicion_C6]
+      .map((v) => parseFloat(v))
+      .filter((v) => !isNaN(v) && v > 0);
+    if (cVals.length > 0) {
+      const dmed_mm = cVals.reduce((a, b) => a + b, 0) / cVals.length;
+      setField("dmed_m", (dmed_mm / 1000).toFixed(4));
+    }
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cargar datos existentes en modo edición
   useEffect(() => {
     if (!editMode) return;
@@ -792,8 +1186,9 @@ export default function NuevoCaso() {
         setFormState((prev) => ({
           ...prev,
           // Paso 0: Incidente
-          numero_siniestro:  inc.numero_siniestro ?? "",
-          tipo_hecho_id:     inc.tipo_hecho_id ?? "",
+          numero_siniestro:         inc.numero_siniestro ?? "",
+          tipo_hecho_id:            inc.tipo_hecho_id ?? "",
+          tipo_hecho_descripcion:   inc.tipo_hecho_descripcion ?? "",
           // La API devuelve ISO timestamp; el input type=date necesita yyyy-MM-dd
           fecha_hecho:       inc.fecha_hecho ? String(inc.fecha_hecho).split('T')[0] : "",
           hora_hecho:        inc.hora_hecho ? String(inc.hora_hecho).substring(0, 5) : "",
@@ -840,6 +1235,7 @@ export default function NuevoCaso() {
           // Paso 5: Deformación (almacenado en metros → mostrar en mm)
           tipo_golpe_id:        def.tipo_golpe_id ?? "",
           numero_mediciones_id: def.numero_mediciones_id ?? "",
+          numero_mediciones:    "",  // resuelto por useEffect cuando cargue cats
           medicion_C1:          def.c1_m != null ? def.c1_m * 1000 : "",
           medicion_C2:          def.c2_m != null ? def.c2_m * 1000 : "",
           medicion_C3:          def.c3_m != null ? def.c3_m * 1000 : "",
@@ -884,7 +1280,7 @@ export default function NuevoCaso() {
             id:          f.id,
             tipo_foto_id:f.tipo_foto_id,
             url:         f.url,
-            previewUrl:  `${API_URL}/v1/rat/fotos/${f.id}`,
+            previewUrl:  `${API_URL}/api/v1/rat/fotos/${f.id}`,
           })));
         }
       })
@@ -903,15 +1299,17 @@ export default function NuevoCaso() {
         if (!form.numero_siniestro?.trim()) throw new Error("El Número de Siniestro es obligatorio.");
         if (!form.tipo_hecho_id)            throw new Error("Selecciona el Tipo de Hecho.");
         if (!form.fecha_hecho)              throw new Error("La Fecha del Hecho es obligatoria.");
+        if (form.fecha_hecho > new Date().toISOString().split("T")[0]) throw new Error("La Fecha del Hecho no puede ser una fecha futura.");
         if (!form.id_usuario_perito)        throw new Error("No se pudo identificar al perito. Inicia sesión nuevamente.");
 
         const payload = {
-          numero_siniestro  : form.numero_siniestro.trim(),
-          tipo_hecho_id     : Number(form.tipo_hecho_id),
-          fecha_hecho       : form.fecha_hecho,
-          hora_hecho        : form.hora_hecho || null,
-          id_usuario_perito : Number(form.id_usuario_perito),
-          estado            : form.estado ?? 0,
+          numero_siniestro       : form.numero_siniestro.trim(),
+          tipo_hecho_id          : Number(form.tipo_hecho_id),
+          tipo_hecho_descripcion : form.tipo_hecho_descripcion?.trim() || null,
+          fecha_hecho            : form.fecha_hecho,
+          hora_hecho             : form.hora_hecho || null,
+          id_usuario_perito      : Number(form.id_usuario_perito),
+          estado                 : form.estado ?? 0,
         };
 
         if (editMode) {
@@ -926,11 +1324,13 @@ export default function NuevoCaso() {
 
       // ── PASO 1: Vehículo ──
       } else if (step === 1) {
-        if (!form.vin?.trim())    throw new Error("El VIN es obligatorio.");
-        if (!form.marca?.trim())  throw new Error("La Marca es obligatoria.");
-        if (!form.anio_modelo)    throw new Error("El Año es obligatorio.");
-        if (!form.tipo_vehiculo)  throw new Error("Selecciona el Tipo de Vehículo.");
-        if (!form.rol)            throw new Error("Selecciona el Rol del vehículo.");
+        if (!form.vin?.trim())    throw new Error("El VIN / Número de Serie es obligatorio.");
+        if (!form.marca?.trim())  throw new Error("La Marca del vehículo es obligatoria.");
+        if (!form.anio_modelo)    throw new Error("El Año del modelo es obligatorio.");
+        const anio = Number(form.anio_modelo);
+        if (isNaN(anio) || anio < 1886 || anio > 2030) throw new Error("El Año del modelo debe estar entre 1886 y 2030.");
+        if (!form.tipo_vehiculo)  throw new Error("Selecciona el Tipo de Vehículo (Ligero / Pesado).");
+        if (!form.rol)            throw new Error("Selecciona el Rol del vehículo (A, B o C).");
 
         await updatePaso2Vehiculo(incidenteUuid, {
           vin                      : form.vin.trim(),
@@ -990,23 +1390,29 @@ export default function NuevoCaso() {
 
       // ── PASO 5: Deformación ──
       } else if (step === 5) {
-        if (!form.tipo_golpe_id)        throw new Error("Selecciona el Tipo de Golpe.");
-        if (!form.numero_mediciones_id) throw new Error("Selecciona el Número de Mediciones.");
-        const _medNombre = (cats?.numeros_mediciones ?? []).find((c) => String(c.id) === String(form.numero_mediciones_id))?.nombre ?? "6";
-        const _camposReq = isNaN(parseInt(_medNombre, 10)) ? 6 : parseInt(_medNombre, 10);
+        if (!form.tipo_golpe_id) throw new Error("Selecciona el Tipo de Golpe.");
+        const _numMed = parseInt(form.numero_mediciones, 10);
+        if (!form.numero_mediciones || isNaN(_numMed))
+          throw new Error("Selecciona el Número de Mediciones (2, 4 o 6).");
+        const MED_ID_FALLBACK = { 2: 1, 4: 2, 6: 3 };
+        const _medCatEntry = (cats?.numeros_mediciones ?? []).find(
+          (c) => parseInt(c.nombre, 10) === _numMed
+        );
+        const _medId = _medCatEntry?.id ?? MED_ID_FALLBACK[_numMed];
+        if (!_medId) throw new Error("Número de mediciones inválido. Valores aceptados: 2, 4, 6.");
         if (!form.medicion_C1) throw new Error("La medición C1 es obligatoria.");
         if (!form.medicion_C2) throw new Error("La medición C2 es obligatoria.");
-        if (_camposReq >= 3 && !form.medicion_C3) throw new Error("La medición C3 es obligatoria.");
-        if (_camposReq >= 4 && !form.medicion_C4) throw new Error("La medición C4 es obligatoria.");
-        if (_camposReq >= 5 && !form.medicion_C5) throw new Error("La medición C5 es obligatoria.");
-        if (_camposReq >= 6 && !form.medicion_C6) throw new Error("La medición C6 es obligatoria.");
+        if (_numMed >= 3 && !form.medicion_C3) throw new Error("La medición C3 es obligatoria para el número de mediciones indicado.");
+        if (_numMed >= 4 && !form.medicion_C4) throw new Error("La medición C4 es obligatoria para el número de mediciones indicado.");
+        if (_numMed >= 5 && !form.medicion_C5) throw new Error("La medición C5 es obligatoria para el número de mediciones indicado.");
+        if (_numMed >= 6 && !form.medicion_C6) throw new Error("La medición C6 es obligatoria para el número de mediciones indicado.");
 
         await updatePaso6Deformacion(incidenteUuid, {
           tipo_golpe_id        : Number(form.tipo_golpe_id),
-          numero_mediciones_id : Number(form.numero_mediciones_id),
+          numero_mediciones_id : _medId,
           c1_m                 : Number(form.medicion_C1) / 1000,
           c2_m                 : Number(form.medicion_C2) / 1000,
-          c3_m                 : form.medicion_C3 ? Number(form.medicion_C3) / 1000 : null,
+          c3_m                 : form.medicion_C3 ? Number(form.medicion_C3) / 1000 : 0,
           c4_m                 : form.medicion_C4 ? Number(form.medicion_C4) / 1000 : null,
           c5_m                 : form.medicion_C5 ? Number(form.medicion_C5) / 1000 : null,
           c6_m                 : form.medicion_C6 ? Number(form.medicion_C6) / 1000 : null,
@@ -1063,7 +1469,13 @@ export default function NuevoCaso() {
       setStep((s) => Math.min(s + 1, STEPS.length - 1));
 
     } catch (err) {
-      setSaveError(err?.message || "No se pudo guardar. Intenta de nuevo.");
+      const apiErrors = err?.response?.data?.errors;
+      if (apiErrors) {
+        const first = Object.values(apiErrors)[0];
+        setSaveError(Array.isArray(first) ? first[0] : String(first));
+      } else {
+        setSaveError(err?.response?.data?.message || err?.message || "No se pudo guardar. Intenta de nuevo.");
+      }
     } finally {
       setSaving(false);
     }
@@ -1098,7 +1510,7 @@ export default function NuevoCaso() {
     true,
     !!(form.municipio && form.velocidad_maxima_permitida_kmh),
     true,
-    !!(form.tipo_golpe_id && form.numero_mediciones_id && form.medicion_C1 && form.medicion_C2),
+    !!(form.tipo_golpe_id && form.numero_mediciones && form.medicion_C1 && form.medicion_C2),
     true,
     !!(form.objeto_involucrado),
     true,
@@ -1118,7 +1530,7 @@ export default function NuevoCaso() {
               return (
                 <div key={s.id} className="flex items-center flex-1">
                   <button
-                    onClick={() => { setSaveError(""); setStep(i); }}
+                    onClick={() => { setSaveError(""); if (i === step) return; setPendingStep(i); }}
                     className="flex flex-col items-center gap-1 group"
                     title={s.label}
                   >
@@ -1185,7 +1597,7 @@ export default function NuevoCaso() {
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => { setSaveError(""); setStep((s) => Math.max(0, s - 1)); }}
+              onClick={() => { setSaveError(""); setPendingStep(Math.max(0, step - 1)); }}
               disabled={step === 0}
               className="flex items-center gap-1 px-3 py-2 text-xs border border-gray-300 rounded text-gray-600 disabled:opacity-40 hover:border-[#00ADCF]"
             >
@@ -1208,6 +1620,49 @@ export default function NuevoCaso() {
         </div>
 
       </div>
+
+      {/* Modal: navegar sin guardar */}
+      {pendingStep !== null && pendingStep !== step && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded shadow-lg w-full max-w-sm p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle size={18} className="text-yellow-500" />
+              <span className="text-sm font-medium text-gray-800">Cambios sin guardar</span>
+            </div>
+            <p className="text-xs text-gray-500 mb-5">
+              ¿Deseas continuar sin guardar los cambios del paso actual, o guardarlos antes de continuar?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setPendingStep(null)}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:border-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setStep(pendingStep); setPendingStep(null); setSaveError(""); }}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:border-red-400 hover:text-red-600"
+              >
+                Continuar sin guardar
+              </button>
+              <button
+                onClick={async () => {
+                  const target = pendingStep;
+                  setPendingStep(null);
+                  await handleGuardar();
+                  setStep(target);
+                }}
+                disabled={saving}
+                className="px-3 py-1.5 text-xs text-white rounded disabled:opacity-50"
+                style={{ backgroundColor: "#00ADCF" }}
+              >
+                {saving ? "Guardando..." : "Guardar y continuar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </FormCtx.Provider>
   );
 }

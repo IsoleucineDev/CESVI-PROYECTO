@@ -43,8 +43,9 @@ export function useIncidentes() {
     });
   }, [rows, search]);
 
-  const remove = useCallback(async (id) => {
-    const confirmed = window.confirm("¿Eliminar este expediente?");
+  const remove = useCallback(async (id, numeroSiniestro) => {
+    const label = numeroSiniestro ? `el expediente "${numeroSiniestro}"` : "este expediente";
+    const confirmed = window.confirm(`¿Está seguro que desea eliminar ${label}? Esta acción no se puede deshacer.`);
     if (!confirmed) return { ok: false };
     try {
       await deleteIncidente(id);

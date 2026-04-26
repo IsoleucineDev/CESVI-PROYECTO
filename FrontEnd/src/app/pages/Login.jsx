@@ -27,30 +27,27 @@ function CesviLogo() {
 }
 
 export function Login() {
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
-
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
   const { login } = useAuth();
-  const navigate  = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-
     if (!email || !password) {
       setError("Ingresa tu correo y contraseña.");
       return;
     }
-
     setLoading(true);
+    setError("");
     try {
       await login(email, password);
       navigate("/");
     } catch (err) {
-      setError(err.message || "Credenciales inválidas. Intenta de nuevo.");
+      setError(err?.response?.data?.message || err?.message || "Credenciales incorrectas.");
     } finally {
       setLoading(false);
     }
@@ -58,6 +55,7 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      {/* Header bar */}
       <div className="fixed top-0 left-0 right-0 h-[52px] flex items-center px-6" style={{ backgroundColor: "#00ADCF" }}>
         <div className="flex items-center gap-3">
           <CesviLogo />
@@ -67,6 +65,7 @@ export function Login() {
 
       <div className="mt-[52px] w-full max-w-sm">
         <div className="bg-white border border-gray-200 rounded shadow-md">
+          {/* Card header */}
           <div className="border-b border-gray-200 px-6 py-4 flex flex-col items-center gap-2">
             <CesviLogo />
             <p className="text-sm text-gray-500 text-center">Sistema RAT – CESVI México</p>
@@ -98,8 +97,7 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="usuario@cesvi.com.mx"
-                  disabled={loading}
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF] disabled:opacity-50"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF]"
                 />
               </div>
             </div>
@@ -117,8 +115,7 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  disabled={loading}
-                  className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF] disabled:opacity-50"
+                  className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#00ADCF] focus:ring-1 focus:ring-[#00ADCF]"
                 />
                 <button
                   type="button"
@@ -152,6 +149,7 @@ export function Login() {
         </p>
       </div>
 
+      {/* Footer */}
       <div className="fixed bottom-0 left-0 right-0 h-[38px] flex items-center justify-center text-white text-xs" style={{ backgroundColor: "#00ADCF" }}>
         ©2026 Creado por CESVI MÉXICO
       </div>

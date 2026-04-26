@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Eye, Trash2, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Search, Plus, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useIncidentes } from "../../hooks/useIncidentes";
 import { cambiarEstado } from "../../services/incidenteService";
 
@@ -51,8 +51,8 @@ export default function Expedientes() {
     setFechaDesde(""); setFechaHasta(""); setPag(1);
   };
 
-  const handleEliminar = async (uuid) => {
-    const { ok, error: err } = await remove(uuid);
+  const handleEliminar = async (uuid, numeroSiniestro) => {
+    const { ok, error: err } = await remove(uuid, numeroSiniestro);
     if (!ok && err) alert(err);
   };
 
@@ -168,7 +168,10 @@ export default function Expedientes() {
                           <button onClick={() => navigate(`/expedientes/${exp.uuid}`)} className="text-[#00ADCF] hover:text-[#007A9A]" title="Ver detalle">
                             <Eye size={15} />
                           </button>
-                          <button onClick={() => handleEliminar(exp.uuid)} className="text-red-400 hover:text-red-600" title="Eliminar">
+                          <button onClick={() => navigate(`/expedientes/${exp.uuid}/editar`)} className="text-amber-500 hover:text-amber-700" title="Editar expediente">
+                            <Pencil size={15} />
+                          </button>
+                          <button onClick={() => handleEliminar(exp.uuid, exp.numero_siniestro)} className="text-red-400 hover:text-red-600" title="Eliminar">
                             <Trash2 size={15} />
                           </button>
                         </div>

@@ -57,6 +57,7 @@ class DashboardController extends Controller
             ->leftJoin('RAT_INCIDENTE_VEHICULO AS iv', 'iv.incidente_id', '=', 'i.id')
             ->leftJoin('RAT_VEHICULO AS v', 'iv.vehiculo_id', '=', 'v.id')
             ->leftJoin('RAT_CALCULO_VELOCIDAD AS cv', 'cv.incidente_vehiculo_id', '=', 'iv.id')
+            ->leftJoin('sys_users AS u', 'u.id_user', '=', 'i.id_usuario_perito')
             ->select(
                 'i.uuid',
                 'i.numero_siniestro',
@@ -66,7 +67,8 @@ class DashboardController extends Controller
                 'th.nombre AS tipo_hecho',
                 DB::raw("CONCAT(v.marca, ' ', v.submarca, ' ', v.anio_modelo) AS vehiculo"),
                 'cv.velocidad_final_kmh',
-                'cv.exceso_velocidad'
+                'cv.exceso_velocidad',
+                'u.name AS perito'
             )
             ->orderByDesc('i.created_at')
             ->limit(5)

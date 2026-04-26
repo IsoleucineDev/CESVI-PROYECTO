@@ -410,26 +410,36 @@ const seccion3 = [
   lineaVacia(),
 ];
 
-// ── Helper: cuadrícula de 2 columnas de fotos ───────────────────────────────
+// ── Helper: cuadrícula de 2 columnas de fotos con pie de foto ────────────────
 function buildFotoGrid(fotos) {
   const rows = [];
   for (let i = 0; i < fotos.length; i += 2) {
     const cells = [];
     for (let j = i; j < Math.min(i + 2, fotos.length); j++) {
-      let hijo;
+      let imgChild;
       try {
         const imgData = fs.readFileSync(fotos[j].ruta);
         const ext = fotos[j].ruta.split('.').pop().toLowerCase();
         const tipo = ext === 'png' ? 'png' : 'jpg';
-        hijo = new ImageRun({ data: imgData, transformation: { width: 275, height: 206 }, type: tipo });
+        imgChild = new ImageRun({ data: imgData, transformation: { width: 275, height: 206 }, type: tipo });
       } catch (_) {
-        hijo = new TextRun({ text: '[imagen no disponible]', size: 18, color: '888888', font: 'Arial' });
+        imgChild = new TextRun({ text: '[imagen no disponible]', size: 18, color: '888888', font: 'Arial' });
+      }
+      const cellChildren = [
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [imgChild] }),
+      ];
+      if (fotos[j].descripcion) {
+        cellChildren.push(new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 40, after: 40 },
+          children: [new TextRun({ text: fotos[j].descripcion, size: 16, color: '666666', font: 'Arial', italics: true })],
+        }));
       }
       cells.push(new TableCell({
         width: { size: 4680, type: WidthType.DXA },
         borders: bordes('DDDDDD'),
         margins: { top: 60, bottom: 60, left: 60, right: 60 },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [hijo] })],
+        children: cellChildren,
       }));
     }
     if (cells.length === 1) {
@@ -446,19 +456,45 @@ function buildFotoGrid(fotos) {
 
 const fotosArr = Array.isArray(datos.fotos) ? datos.fotos : [];
 
+// Orden canónico de las secciones de foto
+const ORDEN_FOTOS = ['Frontal','Lateral Derecho','Lateral Izquierdo','Posterior','Partes Bajas','Habitaculo','Lugar de los Hechos','Objeto Involucrado'];
+
+// Agrupar fotos por tipo
+const fotosPorTipo = fotosArr.reduce((acc, f) => {
+  const t = f.tipo || 'Fotografías';
+  if (!acc[t]) acc[t] = [];
+  acc[t].push(f);
+  return acc;
+}, {});
+
+// Tipos en orden canónico primero, luego los que no están en la lista
+const tiposOrdenados = [
+  ...ORDEN_FOTOS.filter(t => fotosPorTipo[t]),
+  ...Object.keys(fotosPorTipo).filter(t => !ORDEN_FOTOS.includes(t)),
+];
+
 const seccion4 = [];
 seccion4.push(seccion('4', 'OBSERVACIÓN DE DAÑOS EN EL VEHÍCULO'));
-seccion4.push(subseccion('4.1', `VEHÍCULO MARCA ${val(datos.marca).toUpperCase()}, TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()}, MODELO ${val(datos.anio)}, PLACAS ${val(datos.numero_placas)}`));
+seccion4.push(parrafo(
+  `A continuación se presentan las fotografías del vehículo: MARCA ${val(datos.marca).toUpperCase()}, ` +
+  `TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()}, ` +
+  `MODELO ${val(datos.anio)}, PLACAS ${val(datos.numero_placas)}.`
+));
+seccion4.push(lineaVacia());
 
 if (fotosArr.length === 0) {
   seccion4.push(parrafo('Sin fotografías registradas.'));
 } else {
-  const gridRows = buildFotoGrid(fotosArr);
-  seccion4.push(new Table({
-    width: { size: 9360, type: WidthType.DXA },
-    columnWidths: [4680, 4680],
-    rows: gridRows,
-  }));
+  tiposOrdenados.forEach((tipo, idx) => {
+    seccion4.push(subseccion(`4.${idx + 1}`, tipo.toUpperCase()));
+    const gridRows = buildFotoGrid(fotosPorTipo[tipo]);
+    seccion4.push(new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [4680, 4680],
+      rows: gridRows,
+    }));
+    seccion4.push(lineaVacia());
+  });
 }
 seccion4.push(lineaVacia());
 
@@ -683,8 +719,9 @@ JS;
             // Fotografías — rutas absolutas del disco para que Node las lea
             'fotos' => $iv ? $iv->fotos()->with('tipoFoto')->get()
                 ->map(fn($f) => [
-                    'ruta' => storage_path("app/public/{$f->url}"),
-                    'tipo' => $f->tipoFoto?->nombre ?? 'Fotografías',
+                    'ruta'        => storage_path("app/public/{$f->url}"),
+                    'tipo'        => $f->tipoFoto?->nombre ?? 'Fotografías',
+                    'descripcion' => $f->descripcion ?? null,
                 ])
                 ->filter(fn($f) => file_exists($f['ruta']))
                 ->values()

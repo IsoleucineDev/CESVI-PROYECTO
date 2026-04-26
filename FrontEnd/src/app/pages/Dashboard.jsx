@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -31,6 +32,8 @@ function Skeleton({ className = "" }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { dashboard, loading, error } = useDashboard();
+  const { user } = useAuth();
+  const isAdmin = user?.email === "admin@cesvi.com";
 
   const kpiCards = loading || !dashboard
     ? [
@@ -130,7 +133,7 @@ export default function Dashboard() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {["No. Siniestro","Fecha","Tipo","Vehículo","Estado","Vel.","Exceso"].map((h) => (
+                  {["No. Siniestro","Fecha","Tipo","Vehículo", ...(isAdmin ? ["Perito"] : []), "Estado","Vel.","Exceso"].map((h) => (
                     <th key={h} className="text-left text-xs text-gray-500 px-3 py-2 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -139,7 +142,7 @@ export default function Dashboard() {
                 {loading
                   ? Array.from({ length: 4 }).map((_, i) => (
                       <tr key={i} className="border-b border-gray-100">
-                        {Array.from({ length: 7 }).map((__, j) => (
+                        {Array.from({ length: isAdmin ? 8 : 7 }).map((__, j) => (
                           <td key={j} className="px-3 py-2"><Skeleton className="h-3 w-full" /></td>
                         ))}
                       </tr>
@@ -154,6 +157,9 @@ export default function Dashboard() {
                         <td className="px-3 py-2 text-xs text-gray-600">{exp.fecha_hecho}</td>
                         <td className="px-3 py-2 text-xs text-gray-600">{exp.tipo_hecho}</td>
                         <td className="px-3 py-2 text-xs text-gray-600">{exp.vehiculo}</td>
+                        {isAdmin && (
+                          <td className="px-3 py-2 text-xs text-gray-600">{exp.perito ?? "—"}</td>
+                        )}
                         <td className="px-3 py-2">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${ESTADO_BADGE[exp.estado] ?? "bg-gray-100 text-gray-700"}`}>
                             {ESTADO_LABEL[exp.estado] ?? exp.estado}

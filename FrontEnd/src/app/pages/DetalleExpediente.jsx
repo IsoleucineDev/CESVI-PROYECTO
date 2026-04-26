@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useIncidente } from "../../hooks/useIncidente";
 import { generarReporte, descargarReporte } from "../../services/reporteService";
+import { API_URL } from "../../config/env";
 
 const TABS = [
   { id: "resumen",    label: "Resumen",     icon: <FileText size={14} /> },
@@ -86,8 +87,8 @@ function TabVehiculo({ inc }) {
     ["Año",         v.anio_modelo], ["Modelo",    v.nombre_modelo],
     ["VIN",         v.vin],         ["Placas",    iv?.numero_placas],
     ["Color",       iv?.color?.nombre],
-    ["Peso Tara",   v.peso_tara_kg  ? `${v.peso_tara_kg} kg`   : null],
-    ["MMA",         v.mma_kg        ? `${v.mma_kg} kg`         : null],
+    ["Peso Tara",   v.peso_tara_kg              ? `${v.peso_tara_kg} kg`              : null],
+    ["MMA",         v.masa_maxima_autorizada_kg ? `${v.masa_maxima_autorizada_kg} kg` : null],
     ["Ancho",       v.ancho_mm      ? `${v.ancho_mm} mm`       : null],
     ["Largo",       v.largo_mm      ? `${v.largo_mm} mm`       : null],
     ["Alto",        v.alto_mm       ? `${v.alto_mm} mm`        : null],
@@ -101,38 +102,57 @@ function TabVehiculo({ inc }) {
 }
 
 function TabEvidencia({ inc }) {
-  const iv   = inc.vehiculos?.[0];
+  const iv    = inc.vehiculos?.[0];
   const fotos = iv?.fotos ?? [];
-  const cats  = ["Frontal","Lateral Derecho","Lateral Izquierdo","Posterior","Partes Bajas","Habitáculo","Lugar de Hechos","Objeto Involucrado"];
-  const countMap = fotos.reduce((acc, f) => {
+  const [imgErrors, setImgErrors] = React.useState({});
+
+  const fotosPorTipo = fotos.reduce((acc, f) => {
     const tipo = f.tipo_foto?.nombre ?? "Otro";
-    acc[tipo] = (acc[tipo] ?? 0) + 1;
+    if (!acc[tipo]) acc[tipo] = [];
+    acc[tipo].push(f);
     return acc;
   }, {});
+  const tipos = Object.keys(fotosPorTipo);
+
+  if (fotos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+        <Camera size={32} className="mb-2" />
+        <span className="text-sm">Sin evidencia fotográfica</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-4 gap-4">
-      {cats.map((cat) => {
-        const count = countMap[cat] ?? 0;
-        return (
-          <div key={cat} className="border border-gray-200 rounded p-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-600">{cat}</span>
-              <span className={`text-xs rounded-full px-1.5 ${count > 0 ? "bg-[#E0F7FA] text-[#00ADCF]" : "bg-gray-100 text-gray-400"}`}>{count}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1">
-              {Array.from({ length: Math.min(count, 3) }).map((_, j) => (
-                <div key={j} className="aspect-square bg-gray-100 rounded flex items-center justify-center text-gray-300">
-                  <Camera size={14} />
-                </div>
-              ))}
-              {count === 0 && (
-                <div className="col-span-3 text-center text-xs text-gray-300 py-2">Sin evidencia</div>
-              )}
-            </div>
+    <div className="flex flex-col gap-6">
+      {tipos.map((tipo) => (
+        <div key={tipo}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#1F6AA5" }}>{tipo}</span>
+            <span className="text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{fotosPorTipo[tipo].length}</span>
+            <div className="flex-1 h-px bg-gray-200" />
           </div>
-        );
-      })}
+          <div className="grid grid-cols-5 gap-2">
+            {fotosPorTipo[tipo].map((f) => (
+              <div key={f.id} className="rounded border border-gray-200 overflow-hidden bg-gray-50">
+                {imgErrors[f.id] ? (
+                  <div className="w-full h-28 flex flex-col items-center justify-center text-gray-300 gap-1">
+                    <Camera size={18} />
+                    <span className="text-xs">Sin vista previa</span>
+                  </div>
+                ) : (
+                  <img
+                    src={`${API_URL}/api/v1/rat/fotos/${f.id}`}
+                    alt={tipo}
+                    className="w-full h-28 object-cover"
+                    onError={() => setImgErrors((prev) => ({ ...prev, [f.id]: true }))}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -174,13 +194,17 @@ function TabDeformacion({ inc }) {
           : <div className="text-xs text-gray-400">Sin mediciones registradas.</div>}
 
         {def && (
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {[
-              ["Ancho contacto L", def.ancho_contacto_l_mm ? `${def.ancho_contacto_l_mm} mm` : "—"],
-              ["Ángulo FPI",       def.angulo_fpi_grados   ? `${def.angulo_fpi_grados}°`      : "—"],
-              ["Arqueamiento",     def.arqueamiento_mm      ? `${def.arqueamiento_mm} mm`      : "—"],
-              ["Dmed",             def.d_med_m              ? `${(def.d_med_m * 1000).toFixed(1)} mm` : "—"],
-            ].map(([l, v]) => (
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {(() => {
+              const cVals = [def.c1_m, def.c2_m, def.c3_m, def.c4_m, def.c5_m, def.c6_m]
+                .filter((v) => v != null && v > 0);
+              const dmed = cVals.length ? (cVals.reduce((a, b) => a + b, 0) / cVals.length) : null;
+              return [
+                ["Ancho contacto L", def.l_ancho_contacto_m ? `${(def.l_ancho_contacto_m * 1000).toFixed(1)} mm` : "—"],
+                ["Ángulo FPI",       def.angulo_fpi_grados   ? `${def.angulo_fpi_grados}°` : "—"],
+                ["Dmed",             dmed != null            ? `${(dmed * 1000).toFixed(1)} mm` : "—"],
+              ];
+            })().map(([l, v]) => (
               <div key={l} className="bg-[#E0F7FA] border border-[#00ADCF]/30 rounded px-3 py-2">
                 <div className="text-xs text-gray-500">{l}</div>
                 <div className="text-sm font-semibold" style={{ color: "#00ADCF" }}>{v}</div>
@@ -222,12 +246,13 @@ function TabCalculos({ inc }) {
   if (!cal) return <div className="text-xs text-gray-400 py-4">Sin cálculos registrados.</div>;
 
   const resultados = [
-    ["EBS",                    cal.ebs_kmh           ? `${cal.ebs_kmh} km/h`         : "—"],
-    ["Velocidad de impacto",   cal.velocidad_impacto_kmh ? `${cal.velocidad_impacto_kmh} km/h` : "—"],
-    ["Velocidad pre-impacto",  cal.velocidad_impacto_kmh ? `${cal.velocidad_impacto_kmh} km/h` : "—"],
-    ["Velocidad final",        cal.velocidad_final_kmh   ? `${cal.velocidad_final_kmh} km/h`   : "—"],
-    ["Δv (delta)",             cal.delta_exceso_kmh      ? `${cal.delta_exceso_kmh} km/h`      : "—"],
-    ["Exceso de velocidad",    cal.exceso_velocidad === 1 ? `+${cal.delta_exceso_kmh ?? "?"} km/h` : "No"],
+    ["EBS",                   cal.ebs_m_s               ? `${cal.ebs_m_s} m/s`               : "—"],
+    ["Velocidad de impacto",  cal.velocidad_impacto_kmh  ? `${cal.velocidad_impacto_kmh} km/h` : "—"],
+    ["Velocidad pre-impacto", cal.velocidad_pre_impacto_kmh ? `${cal.velocidad_pre_impacto_kmh} km/h` : "—"],
+    ["Velocidad Limpert",     cal.velocidad_limpert_kmh  ? `${cal.velocidad_limpert_kmh} km/h` : "—"],
+    ["Velocidad final",       cal.velocidad_final_kmh    ? `${cal.velocidad_final_kmh} km/h`   : "—"],
+    ["Δv (delta)",            cal.delta_exceso_kmh       ? `${cal.delta_exceso_kmh} km/h`      : "—"],
+    ["Exceso de velocidad",   cal.exceso_velocidad === 1 ? `+${cal.delta_exceso_kmh ?? "?"} km/h` : "No"],
   ];
 
   return (
@@ -235,11 +260,12 @@ function TabCalculos({ inc }) {
       <div>
         <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Parámetros</div>
         {[
-          ["Rigidez A",         cal.rigidez_a],
-          ["Rigidez B",         cal.rigidez_b],
-          ["μ corregido",       cal.mu_corregido],
-          ["Tiempo reacción",   cal.tiempo_reaccion_s ? `${cal.tiempo_reaccion_s} s` : null],
-          ["Distancia frenado", cal.distancia_frenado_m ? `${cal.distancia_frenado_m} m` : null],
+          ["Rigidez A (N/m)",          cal.a_rigidez_n_m],
+          ["Rigidez B (N/m²)",         cal.b_rigidez_n_m2],
+          ["Dmed (m)",                 cal.dmed_m],
+          ["Ed deformación (J)",       cal.e_deformacion_julios],
+          ["Ed corregida (J)",         cal.e_def_corregida_julios],
+          ["T. respuesta frenos (s)",  cal.tiempo_respuesta_frenos_s ? `${cal.tiempo_respuesta_frenos_s} s` : null],
         ].map(([l, v]) => <Row key={l} label={l} val={v} />)}
       </div>
       <div>
@@ -281,12 +307,6 @@ function TabNarrativa({ inc }) {
             <div className="text-xs font-medium text-gray-700 mb-2">Correspondencia de características</div>
             <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700">
               {principios.principio_correspondencia ?? "—"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-700 mb-2">Dinámica de la colisión</div>
-            <div className="bg-gray-50 border border-gray-200 rounded p-3 text-xs text-gray-700">
-              {principios.dinamica_colision_fases ?? "—"}
             </div>
           </div>
         </>

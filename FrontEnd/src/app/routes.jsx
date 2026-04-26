@@ -8,6 +8,7 @@ import DetalleExpediente from "./pages/DetalleExpediente";
 import Catalogos from "./pages/Catalogos";
 import Perfil from "./pages/Perfil";
 import ProtectedRoute from "../components/ProtectedRoute";
+import AdminUsuarios from "./pages/AdminUsuarios";
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
           { path: "expedientes/:id/editar", Component: NuevoCaso },
           { path: "configuracion/catalogos", Component: Catalogos },
           { path: "perfil", Component: Perfil },
+          { path: "admin/usuarios", Component: AdminUsuarios },
         ],
       },
     ],

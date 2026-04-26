@@ -10,6 +10,7 @@ use App\Http\Controllers\RAT\EvidenciaController;
 use App\Http\Controllers\RAT\ReporteController;
 use App\Http\Controllers\RAT\PerfilController;
 use App\Http\Controllers\RAT\MonitorController;
+use App\Http\Controllers\RAT\AdminController;
 
 // ── Auth (sin middleware) ─────────────────────────────────────────────────────
 Route::prefix('v1/rat/auth')->group(function () {
@@ -78,5 +79,9 @@ Route::prefix('v1/rat')->middleware('auth:api')->group(function () {
 
     // ── Monitor ───────────────────────────────────────────────────────────────
     Route::get('/monitor',   [MonitorController::class, 'show']);
+
+    // ── Admin ─────────────────────────────────────────────────────────────────
+    Route::get('/admin/usuarios',                [AdminController::class, 'getUsuarios']);
+    Route::put('/admin/usuarios/{id}/password',  [AdminController::class, 'updatePassword']);
 
 });
