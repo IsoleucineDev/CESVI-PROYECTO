@@ -118,13 +118,13 @@ class PerfilController extends Controller
         $userId = $this->jwtUserId($request);
         $user   = DB::table('sys_users')->where('id_user', $userId)->first();
 
-        if (!$user || !Hash::check($request->password_actual, $user->password)) {
+        if (!$user || $request->password_actual !== $user->password) {
             return response()->json(['message' => 'La contraseña actual es incorrecta.'], 422);
         }
 
         DB::table('sys_users')
             ->where('id_user', $userId)
-            ->update(['password' => Hash::make($request->password_nuevo)]);
+            ->update(['password' => $request->password_nuevo]);
 
         return response()->json(['message' => 'Contraseña actualizada.']);
     }

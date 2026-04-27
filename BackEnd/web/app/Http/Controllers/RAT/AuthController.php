@@ -25,7 +25,7 @@ class AuthController extends Controller
             ->where('email', $request->email)
             ->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user || $request->password !== $user->password) {
             return response()->json([
                 'message' => 'Credenciales incorrectas.',
             ], 401);

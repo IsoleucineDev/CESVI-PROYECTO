@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Download, Send, CheckCircle, AlertTriangle,
-  FileText, User, Camera, Ruler, Calculator, BookOpen, Pencil,
+  FileText, User, Camera, Ruler, Calculator, BookOpen, Pencil, Maximize2, X,
 } from "lucide-react";
 import { useIncidente } from "../../hooks/useIncidente";
 import { generarReporte, descargarReporte } from "../../services/reporteService";
@@ -27,10 +27,11 @@ const ESTADO_BADGE = {
 };
 
 function Row({ label, val, highlight }) {
+  const display = val == null || (typeof val === "number" && isNaN(val)) ? "—" : val;
   return (
     <div className="flex justify-between items-center py-1.5 border-b border-gray-100">
       <span className="text-xs text-gray-500">{label}</span>
-      <span className={`text-xs font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>{val ?? "—"}</span>
+      <span className={`text-xs font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>{display}</span>
     </div>
   );
 }
@@ -105,6 +106,7 @@ function TabEvidencia({ inc }) {
   const iv    = inc.vehiculos?.[0];
   const fotos = iv?.fotos ?? [];
   const [imgErrors, setImgErrors] = React.useState({});
+  const [lightbox, setLightbox]   = React.useState(null); // { src, tipo }
 
   const fotosPorTipo = fotos.reduce((acc, f) => {
     const tipo = f.tipo_foto?.nombre ?? "Otro";
@@ -124,36 +126,69 @@ function TabEvidencia({ inc }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {tipos.map((tipo) => (
-        <div key={tipo}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#1F6AA5" }}>{tipo}</span>
-            <span className="text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{fotosPorTipo[tipo].length}</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            {fotosPorTipo[tipo].map((f) => (
-              <div key={f.id} className="rounded border border-gray-200 overflow-hidden bg-gray-50">
-                {imgErrors[f.id] ? (
-                  <div className="w-full h-28 flex flex-col items-center justify-center text-gray-300 gap-1">
-                    <Camera size={18} />
-                    <span className="text-xs">Sin vista previa</span>
-                  </div>
-                ) : (
-                  <img
-                    src={`${API_URL}/api/v1/rat/fotos/${f.id}`}
-                    alt={tipo}
-                    className="w-full h-28 object-cover"
-                    onError={() => setImgErrors((prev) => ({ ...prev, [f.id]: true }))}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+    <>
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
+          onClick={() => setLightbox(null)}
+        >
+          <img
+            src={lightbox.src}
+            alt={lightbox.tipo}
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80"
+            onClick={() => setLightbox(null)}
+          >
+            <X size={20} />
+          </button>
+          <div className="absolute bottom-4 text-white text-xs opacity-70">{lightbox.tipo}</div>
         </div>
-      ))}
-    </div>
+      )}
+      <div className="flex flex-col gap-6">
+        {tipos.map((tipo) => (
+          <div key={tipo}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#1F6AA5" }}>{tipo}</span>
+              <span className="text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{fotosPorTipo[tipo].length}</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {fotosPorTipo[tipo].map((f) => {
+                const src = `${API_URL}/v1/rat/fotos/${f.id}`;
+                return (
+                  <div key={f.id} className="relative group rounded border border-gray-200 overflow-hidden bg-gray-50 cursor-pointer"
+                    onClick={() => !imgErrors[f.id] && setLightbox({ src, tipo })}>
+                    {imgErrors[f.id] ? (
+                      <div className="w-full h-28 flex flex-col items-center justify-center text-gray-300 gap-1">
+                        <Camera size={18} />
+                        <span className="text-xs">Sin vista previa</span>
+                      </div>
+                    ) : (
+                      <>
+                        <img
+                          src={src}
+                          alt={tipo}
+                          className="w-full h-28 object-cover transition-opacity group-hover:opacity-80"
+                          onError={() => setImgErrors((prev) => ({ ...prev, [f.id]: true }))}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="bg-black/50 rounded-full p-1.5 text-white">
+                            <Maximize2 size={14} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -161,18 +196,19 @@ function TabDeformacion({ inc }) {
   const iv  = inc.vehiculos?.[0];
   const def = iv?.deformacion_medicion;
 
-  const mediciones = def
+  const rawCVals = def
     ? [
-        { label: "C1", val: def.c1_m ? `${def.c1_m * 1000} mm` : "—" },
-        { label: "C2", val: def.c2_m ? `${def.c2_m * 1000} mm` : "—" },
-        { label: "C3", val: def.c3_m ? `${def.c3_m * 1000} mm` : "—" },
-        { label: "C4", val: def.c4_m ? `${def.c4_m * 1000} mm` : "—" },
-        { label: "C5", val: def.c5_m ? `${def.c5_m * 1000} mm` : "—" },
-        { label: "C6", val: def.c6_m ? `${def.c6_m * 1000} mm` : "—" },
-      ]
+        { label: "C1", raw: def.c1_m },
+        { label: "C2", raw: def.c2_m },
+        { label: "C3", raw: def.c3_m },
+        { label: "C4", raw: def.c4_m },
+        { label: "C5", raw: def.c5_m },
+        { label: "C6", raw: def.c6_m },
+      ].filter((m) => m.raw != null && !isNaN(m.raw) && m.raw > 0)
     : [];
 
-  const cValues = def ? [def.c1_m, def.c2_m, def.c3_m, def.c4_m, def.c5_m, def.c6_m].map((v) => (v ?? 0) * 1000) : [];
+  const mediciones = rawCVals.map((m) => ({ label: m.label, val: `${(m.raw * 1000).toFixed(1)} mm` }));
+  const cValues    = rawCVals.map((m) => m.raw * 1000);
 
   return (
     <div className="grid grid-cols-2 gap-6">
@@ -196,13 +232,13 @@ function TabDeformacion({ inc }) {
         {def && (
           <div className="mt-4 grid grid-cols-3 gap-3">
             {(() => {
-              const cVals = [def.c1_m, def.c2_m, def.c3_m, def.c4_m, def.c5_m, def.c6_m]
-                .filter((v) => v != null && v > 0);
-              const dmed = cVals.length ? (cVals.reduce((a, b) => a + b, 0) / cVals.length) : null;
+              const dmed = rawCVals.length
+                ? rawCVals.reduce((a, m) => a + m.raw, 0) / rawCVals.length
+                : null;
               return [
-                ["Ancho contacto L", def.l_ancho_contacto_m ? `${(def.l_ancho_contacto_m * 1000).toFixed(1)} mm` : "—"],
-                ["Ángulo FPI",       def.angulo_fpi_grados   ? `${def.angulo_fpi_grados}°` : "—"],
-                ["Dmed",             dmed != null            ? `${(dmed * 1000).toFixed(1)} mm` : "—"],
+                ["Ancho contacto L", def.l_ancho_contacto_m && !isNaN(def.l_ancho_contacto_m) ? `${(def.l_ancho_contacto_m * 1000).toFixed(1)} mm` : "—"],
+                ["Ángulo FPI",       def.angulo_fpi_grados  && !isNaN(def.angulo_fpi_grados)   ? `${def.angulo_fpi_grados}°` : "—"],
+                ["Dmed",             dmed != null                                               ? `${(dmed * 1000).toFixed(1)} mm` : "—"],
               ];
             })().map(([l, v]) => (
               <div key={l} className="bg-[#E0F7FA] border border-[#00ADCF]/30 rounded px-3 py-2">
@@ -220,14 +256,15 @@ function TabDeformacion({ inc }) {
           ? (
             <svg width="200" height="140" viewBox="0 0 200 140">
               <rect x="10" y="20" width="180" height="110" rx="8" stroke="#9CA3AF" strokeWidth="2" fill="#F9FAFB" />
-              {cValues.map((v, i) => {
+              {rawCVals.map((m, i) => {
+                const v = m.raw * 1000;
                 const x = 20 + i * 32;
                 const h = (v / 400) * 80;
                 return (
-                  <g key={i}>
+                  <g key={m.label}>
                     <rect x={x - 8} y={30} width={16} height={h} fill="#FCA5A5" opacity="0.6" />
                     <circle cx={x} cy={30 + h} r={4} fill="#EF4444" />
-                    <text x={x} y={135} textAnchor="middle" fontSize="9" fill="#374151">C{i + 1}</text>
+                    <text x={x} y={135} textAnchor="middle" fontSize="9" fill="#374151">{m.label}</text>
                   </g>
                 );
               })}

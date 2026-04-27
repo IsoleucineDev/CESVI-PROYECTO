@@ -1,7 +1,10 @@
-import { apiClient } from "../api/apiClient";
+import { http } from "../api/http";
+import { API_PREFIX } from "../config/env";
+
+const BASE = `${API_PREFIX}/admin`;
 
 export const getUsuarios = () =>
-  apiClient.get("/admin/usuarios").then((r) => r.data);
+  http.get(`${BASE}/usuarios`).then((r) => r.data);
 
 export const updateUserPassword = (id, passwordNuevo) =>
-  apiClient.put(`/admin/usuarios/${id}/password`, { password_nuevo: passwordNuevo }).then((r) => r.data);
+  http.put(`${BASE}/usuarios/${id}/password`, { password_nuevo: passwordNuevo }).then((r) => r.data);

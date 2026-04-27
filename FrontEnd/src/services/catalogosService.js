@@ -39,23 +39,21 @@ export async function getMu(params = {}) {
   return data;
 }
 
-// ── Catálogo de Entorno ───────────────────────────────────────────────────────
-export async function getCatalogoEntorno() {
-  const { data } = await http.get(`${API_PREFIX}/catalogos/entorno`);
+// ── CRUD de catálogos RAT (solo admin) ──────────────────────────────────────
+export async function createCatalogoItem(cat, nombre) {
+  const { data } = await http.post(`${C}/${cat}`, { nombre });
+  _catalogosCache = null; // invalidar cache
   return data;
 }
 
-export async function createCatalogoEntorno(payload) {
-  const { data } = await http.post(`${API_PREFIX}/catalogos/entorno`, payload);
+export async function updateCatalogoItem(cat, id, nombre) {
+  const { data } = await http.put(`${C}/${cat}/${id}`, { nombre });
+  _catalogosCache = null;
   return data;
 }
 
-export async function updateCatalogoEntorno(id, payload) {
-  const { data } = await http.put(`${API_PREFIX}/catalogos/entorno/${id}`, payload);
-  return data;
-}
-
-export async function deleteCatalogoEntorno(id) {
-  const { data } = await http.delete(`${API_PREFIX}/catalogos/entorno/${id}`);
+export async function deleteCatalogoItem(cat, id) {
+  const { data } = await http.delete(`${C}/${cat}/${id}`);
+  _catalogosCache = null;
   return data;
 }

@@ -67,7 +67,7 @@ class AdminController extends Controller
 
         DB::table('sys_users')
             ->where('id_user', $id)
-            ->update(['password' => Hash::make($request->password_nuevo)]);
+            ->update(['password' => $request->password_nuevo]);
 
         return response()->json(['message' => 'Contraseña actualizada correctamente.']);
     }

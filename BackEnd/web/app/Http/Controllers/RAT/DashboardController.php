@@ -19,8 +19,12 @@ class DashboardController extends Controller
      *  - Expedientes recientes (últimos 5)
      *  - Resumen del mes actual
      */
-    public function index(): JsonResponse
+    public function index(\Illuminate\Http\Request $request): JsonResponse
     {
+        $authUser = $request->attributes->get('user');
+        $isAdmin  = ($authUser->email ?? '') === 'admin@cesvi.com';
+        $userId   = $authUser->id_user ?? null;
+
         // ── Contadores por estado ─────────────────────────────────────────────
         $contadores = DB::table('RAT_INCIDENTE')
             ->selectRaw("
@@ -28,18 +32,32 @@ class DashboardController extends Controller
                 SUM(CASE WHEN estado = 1 THEN 1 ELSE 0 END) AS en_revision,
                 SUM(CASE WHEN estado = 2 THEN 1 ELSE 0 END) AS finalizados
             ")
+            ->when(!$isAdmin && $userId, fn ($q) => $q->where('id_usuario_perito', $userId))
             ->first();
 
         // Excesos de velocidad confirmados
-        $excesos = DB::table('RAT_CALCULO_VELOCIDAD')
-            ->where('exceso_velocidad', 1)
+        $excesos = DB::table('RAT_CALCULO_VELOCIDAD AS cv')
+            ->join('RAT_INCIDENTE_VEHICULO AS iv', 'iv.id', '=', 'cv.incidente_vehiculo_id')
+            ->join('RAT_INCIDENTE AS i', 'i.id', '=', 'iv.incidente_id')
+            ->where('cv.exceso_velocidad', 1)
+            ->when(!$isAdmin && $userId, fn ($q) => $q->where('i.id_usuario_perito', $userId))
             ->count();
 
-        // ── Expedientes por mes (últimos 6 meses) ─────────────────────────────
+        // ── Expedientes por mes — por fecha del hecho (últimos 12 meses) ────────
         $expedientesPorMes = DB::table('RAT_INCIDENTE')
             ->selectRaw("DATE_FORMAT(fecha_hecho, '%Y-%m') AS mes, COUNT(*) AS total")
-            ->where('fecha_hecho', '>=', \Carbon\Carbon::now()->subMonths(6)->startOfMonth())
+            ->where('fecha_hecho', '>=', \Carbon\Carbon::now()->subMonths(12)->startOfMonth())
+            ->when(!$isAdmin && $userId, fn ($q) => $q->where('id_usuario_perito', $userId))
             ->groupByRaw("DATE_FORMAT(fecha_hecho, '%Y-%m')")
+            ->orderBy('mes')
+            ->get();
+
+        // ── Expedientes por mes — por fecha de ingreso (últimos 12 meses) ─────
+        $expedientesPorIngreso = DB::table('RAT_INCIDENTE')
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') AS mes, COUNT(*) AS total")
+            ->where('created_at', '>=', \Carbon\Carbon::now()->subMonths(12)->startOfMonth())
+            ->when(!$isAdmin && $userId, fn ($q) => $q->where('id_usuario_perito', $userId))
+            ->groupByRaw("DATE_FORMAT(created_at, '%Y-%m')")
             ->orderBy('mes')
             ->get();
 
@@ -47,6 +65,7 @@ class DashboardController extends Controller
         $porTipoHecho = DB::table('RAT_INCIDENTE AS i')
             ->join('RAT_CAT_TIPO_HECHO AS t', 'i.tipo_hecho_id', '=', 't.id')
             ->selectRaw('t.nombre, COUNT(*) AS total')
+            ->when(!$isAdmin && $userId, fn ($q) => $q->where('i.id_usuario_perito', $userId))
             ->groupBy('t.nombre')
             ->orderByDesc('total')
             ->get();
@@ -70,6 +89,7 @@ class DashboardController extends Controller
                 'cv.exceso_velocidad',
                 'u.name AS perito'
             )
+            ->when(!$isAdmin && $userId, fn ($q) => $q->where('i.id_usuario_perito', $userId))
             ->orderByDesc('i.created_at')
             ->limit(5)
             ->get();
@@ -80,6 +100,7 @@ class DashboardController extends Controller
             ->leftJoin('RAT_INCIDENTE_VEHICULO AS iv', 'iv.incidente_id', '=', 'i.id')
             ->leftJoin('RAT_CALCULO_VELOCIDAD AS cv', 'cv.incidente_vehiculo_id', '=', 'iv.id')
             ->where('i.created_at', '>=', $inicioMes)
+            ->when(!$isAdmin && $userId, fn ($q) => $q->where('i.id_usuario_perito', $userId))
             ->selectRaw("
                 COUNT(DISTINCT i.id)                                          AS nuevos_casos,
                 SUM(CASE WHEN i.estado = 2 THEN 1 ELSE 0 END)                AS cerrados,
@@ -95,10 +116,11 @@ class DashboardController extends Controller
                 'finalizados'    => (int) $contadores->finalizados,
                 'exceso_velocidad' => $excesos,
             ],
-            'expedientes_por_mes' => $expedientesPorMes,
-            'por_tipo_hecho'      => $porTipoHecho,
-            'expedientes_recientes' => $recientes,
-            'resumen_mes'         => $resumenMes,
+            'expedientes_por_mes'     => $expedientesPorMes,
+            'expedientes_por_ingreso' => $expedientesPorIngreso,
+            'por_tipo_hecho'          => $porTipoHecho,
+            'expedientes_recientes'   => $recientes,
+            'resumen_mes'             => $resumenMes,
         ]);
     }
 }

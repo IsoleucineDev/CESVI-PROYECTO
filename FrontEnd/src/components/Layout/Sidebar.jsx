@@ -1,75 +1,27 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Settings, User, ChevronRight, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, FileText, BookOpen, Users, User, ChevronRight, ChevronLeft } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const BRAND_COLOR = "#00ADCF";
 
-const NAV_ITEMS = [
-  {
-    id: "dashboard",
-    icon: <LayoutDashboard size={20} />,
-    label: "Dashboard",
-    path: "/Dashboard",
-  },
-  {
-    id: "expedientes",
-    icon: <FileText size={20} />,
-    label: "Expedientes RAT",
-    path: "/expedientes",
-  },
-  {
-    id: "configuracion",
-    icon: <Settings size={20} />,
-    label: "Configuración",
-    children: [
-      { label: "Catálogos", path: "/configuracion/catalogos" },
-      { label: "Usuarios", path: "/perfil" },
-    ],
-  },
-  {
-    id: "perfil",
-    icon: <User size={20} />,
-    label: "Perfil",
-    path: "/perfil",
-  },
-];
-
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
-  const [openSubmenu, setOpenSubmenu] = useState(null);
-  const [tooltip, setTooltip] = useState(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const submenuRef = useRef(null);
+  const [tooltip, setTooltip]     = useState(null);
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const { user }  = useAuth();
+  const isAdmin   = user?.email === "admin@cesvi.com";
 
-  useEffect(() => {
-    function handleClick(e) {
-      if (submenuRef.current && !submenuRef.current.contains(e.target)) {
-        setOpenSubmenu(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  const NAV_ITEMS = [
+    { id: "dashboard",    icon: <LayoutDashboard size={20} />, label: "Dashboard",       path: "/Dashboard" },
+    { id: "expedientes",  icon: <FileText size={20} />,        label: "Expedientes RAT", path: "/expedientes" },
+    { id: "catalogos",    icon: <BookOpen size={20} />,         label: "Catálogos",       path: "/configuracion/catalogos" },
+    ...(isAdmin ? [{ id: "usuarios", icon: <Users size={20} />, label: "Usuarios", path: "/admin/usuarios" }] : []),
+    { id: "perfil",       icon: <User size={20} />,            label: "Perfil",           path: "/perfil" },
+  ];
 
-  const isActive = (item) => {
-    if (item.path) {
-      return location.pathname.startsWith(item.path);
-    }
-    if (item.children) {
-      return item.children.some((c) => location.pathname.startsWith(c.path));
-    }
-    return false;
-  };
-
-  const handleItemClick = (item) => {
-    if (item.children) {
-      setOpenSubmenu(openSubmenu === item.id ? null : item.id);
-    } else if (item.path) {
-      navigate(item.path);
-      setOpenSubmenu(null);
-    }
-  };
+  const isActive = (item) => location.pathname.startsWith(item.path);
 
   const sidebarWidth = collapsed ? "w-[60px]" : "w-[200px]";
 
@@ -86,13 +38,13 @@ export default function Sidebar() {
         <CesviLogo color={BRAND_COLOR} />
       </div>
 
-      <nav className="flex flex-col gap-1 p-2 flex-1 relative" ref={submenuRef}>
+      <nav className="flex flex-col gap-1 p-2 flex-1 relative">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item);
           return (
             <div key={item.id} className="relative">
               <button
-                onClick={() => handleItemClick(item)}
+                onClick={() => navigate(item.path)}
                 onMouseEnter={(e) => {
                   if (collapsed) {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -100,16 +52,13 @@ export default function Sidebar() {
                   }
                 }}
                 onMouseLeave={() => setTooltip(null)}
-                className={`w-full flex items-center gap-3 px-2 py-2.5 rounded-lg transition-colors duration-150 group ${
+                className={`w-full flex items-center gap-3 px-2 py-2.5 rounded-lg transition-colors duration-150 ${
                   active ? "bg-[#E0F7FA] text-[#00ADCF]" : "text-gray-400 hover:bg-gray-50 hover:text-[#00ADCF]"
                 }`}
                 style={{ minHeight: 40 }}
               >
                 <span className={`shrink-0 ${active ? "text-[#00ADCF]" : ""}`}>{item.icon}</span>
                 {!collapsed && <span className="text-xs font-medium truncate">{item.label}</span>}
-                {!collapsed && item.children && (
-                  <ChevronRight size={14} className={`ml-auto transition-transform ${openSubmenu === item.id ? "rotate-90" : ""}`} />
-                )}
               </button>
 
               {collapsed && tooltip?.id === item.id && (
@@ -118,34 +67,6 @@ export default function Sidebar() {
                   style={{ top: tooltip.y + 8 }}
                 >
                   {item.label}
-                </div>
-              )}
-
-              {item.children && openSubmenu === item.id && (
-                <div
-                  className={`${
-                    collapsed
-                      ? "fixed left-[64px] bg-white border border-gray-200 shadow-lg rounded-lg py-1 z-50 min-w-[160px]"
-                      : "mt-1 ml-2 flex flex-col gap-0.5"
-                  }`}
-                  style={collapsed ? { top: tooltip?.y || 0 } : {}}
-                >
-                  {item.children.map((child) => (
-                    <button
-                      key={child.path}
-                      onClick={() => {
-                        navigate(child.path);
-                        setOpenSubmenu(null);
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs rounded transition-colors ${
-                        location.pathname.startsWith(child.path)
-                          ? "bg-[#E0F7FA] text-[#00ADCF]"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-[#00ADCF]"
-                      }`}
-                    >
-                      {child.label}
-                    </button>
-                  ))}
                 </div>
               )}
             </div>

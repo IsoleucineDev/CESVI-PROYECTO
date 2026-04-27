@@ -2,8 +2,8 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+  PieChart, Pie, Cell,
 } from "recharts";
 import { FileText, Clock, CheckCircle, AlertTriangle, Plus, Eye, TrendingUp } from "lucide-react";
 import { useDashboard } from "../../hooks/useDashboard";
@@ -49,10 +49,22 @@ export default function Dashboard() {
         { label: "Exceso de Velocidad", value: dashboard.contadores.exceso_velocidad, icon: <AlertTriangle size={20} />, color: "#EF4444", bg: "#FEE2E2" },
       ];
 
-  const barData = dashboard?.expedientes_por_mes?.map((r) => ({
-    mes: MESES_CORTO[parseInt(r.mes.split("-")[1], 10) - 1],
-    casos: r.total,
-  })) ?? [];
+  const barData = (() => {
+    const now   = new Date();
+    const meses = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    });
+    const byHecho   = {};
+    const byIngreso = {};
+    (dashboard?.expedientes_por_mes     ?? []).forEach((r) => { byHecho[r.mes]   = Number(r.total); });
+    (dashboard?.expedientes_por_ingreso ?? []).forEach((r) => { byIngreso[r.mes] = Number(r.total); });
+    return meses.map((k) => ({
+      mes:      MESES_CORTO[parseInt(k.split("-")[1], 10) - 1],
+      hecho:    byHecho[k]   ?? 0,
+      ingreso:  byIngreso[k] ?? 0,
+    }));
+  })();
 
   const pieData = dashboard?.por_tipo_hecho?.map((r) => ({
     name: r.nombre,
@@ -88,16 +100,25 @@ export default function Dashboard() {
       {/* Gráficas */}
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2 bg-white border border-gray-200 rounded shadow-sm p-4">
-          <div className="text-sm text-gray-700 mb-3 border-b border-gray-100 pb-2">Expedientes por mes</div>
+          <div className="text-sm text-gray-700 mb-3 border-b border-gray-100 pb-2">Expedientes por mes (últimos 12 meses)</div>
           {loading
             ? <Skeleton className="h-44 w-full" />
             : (
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={barData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 4 }} />
-                  <Bar dataKey="casos" fill="#00ADCF" radius={[3, 3, 0, 0]} />
+              <ResponsiveContainer width="100%" height={190}>
+                <BarChart data={barData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barCategoryGap="30%">
+                  <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, border: "1px solid #e5e7eb", borderRadius: 4 }}
+                    formatter={(v, name) => [v, name === "hecho" ? "Por fecha del hecho" : "Ingresados al sistema"]}
+                  />
+                  <Legend
+                    iconType="circle" iconSize={8}
+                    wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                    formatter={(name) => name === "hecho" ? "Fecha del hecho" : "Ingresados al sistema"}
+                  />
+                  <Bar dataKey="hecho"   name="hecho"   fill="#00ADCF" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="ingreso" name="ingreso" fill="#1F6AA5" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

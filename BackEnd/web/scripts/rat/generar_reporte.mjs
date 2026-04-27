@@ -2,14 +2,20 @@ import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   Header, Footer, AlignmentType, HeadingLevel, BorderStyle, WidthType,
   ShadingType, VerticalAlign, PageNumber, PageBreak,
-  ImageRun, TabStopType, convertInchesToTwip
+  ImageRun, TabStopType,
+  HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, TextWrappingType
 } from 'docx';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 const rutaSalida = process.argv[2];
 const datos = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
 
+// ── Constantes de color ───────────────────────────────────────────────────────
 const BLUE    = '1F6AA5';
 const CYAN    = '00B0F0';
 const GRAY_BG = 'F2F2F2';
@@ -18,11 +24,12 @@ const BLACK   = '000000';
 
 const val = (v) => (v && v !== 'null' && v !== 'undefined') ? String(v) : '---';
 
-const borde = (color = 'CCCCCC') => ({ style: BorderStyle.SINGLE, size: 6, color });
+const borde  = (color = 'CCCCCC') => ({ style: BorderStyle.SINGLE, size: 6, color });
 const bordes = (color = 'CCCCCC') => ({
   top: borde(color), bottom: borde(color),
   left: borde(color), right: borde(color),
 });
+
 const celda = (txt, opts = {}) => new TableCell({
   borders: bordes(opts.borderColor || 'CCCCCC'),
   width: { size: opts.width || 4680, type: WidthType.DXA },
@@ -33,21 +40,18 @@ const celda = (txt, opts = {}) => new TableCell({
   children: [new Paragraph({
     alignment: opts.align || AlignmentType.LEFT,
     children: [new TextRun({
-      text: txt,
-      bold: opts.bold || false,
-      size: opts.size || 20,
-      color: opts.color || BLACK,
-      font: 'Arial',
+      text: txt, bold: opts.bold || false,
+      size: opts.size || 20, color: opts.color || BLACK, font: 'Arial',
     })],
   })],
 });
 
-const seccion = (num, titulo) => new Paragraph({
+const heading1 = (num, titulo) => new Paragraph({
   heading: HeadingLevel.HEADING_1,
   spacing: { before: 240, after: 120 },
   children: [new TextRun({ text: `${num}    ${titulo.toUpperCase()}`, bold: true, size: 24, color: BLUE, font: 'Arial' })],
 });
-const subseccion = (num, titulo) => new Paragraph({
+const heading2 = (num, titulo) => new Paragraph({
   heading: HeadingLevel.HEADING_2,
   spacing: { before: 160, after: 80 },
   children: [new TextRun({ text: `${num}    ${titulo}`, bold: true, size: 22, color: BLUE, font: 'Arial' })],
@@ -56,28 +60,80 @@ const parrafo = (texto, opts = {}) => new Paragraph({
   alignment: opts.align || AlignmentType.JUSTIFIED,
   spacing: { before: opts.before || 80, after: opts.after || 80, line: 276 },
   children: [new TextRun({
-    text: texto,
-    size: opts.size || 20,
-    bold: opts.bold || false,
-    color: opts.color || BLACK,
-    font: 'Arial',
+    text: texto, size: opts.size || 20, bold: opts.bold || false,
+    color: opts.color || BLACK, font: 'Arial',
   })],
 });
 const lineaVacia = () => new Paragraph({ children: [new TextRun({ text: '' })] });
 
+// ── Logo CESVI ────────────────────────────────────────────────────────────────
 let logoRun = null;
-const logoPath = path.resolve('public/img/cesvi_logo.png');
+const logoPath = path.join(__dirname, '..', '..', 'public', 'img', 'cesvi_logo.png');
 if (fs.existsSync(logoPath)) {
-  const logoData = fs.readFileSync(logoPath);
-  logoRun = new ImageRun({ data: logoData, transformation: { width: 130, height: 55 }, type: 'png' });
+  logoRun = new ImageRun({
+    data: fs.readFileSync(logoPath),
+    transformation: { width: 130, height: 55 },
+    type: 'png',
+  });
 }
 
-const header = new Header({
+// ── Imágenes de fondo (opcionales) ───────────────────────────────────────────
+// Coloca los PNGs en BackEnd/web/public/templates/
+//   cesvi_portada.png  →  fondo para la portada
+//   cesvi_pagina.png   →  fondo para las páginas de contenido
+// Genera estos PNGs exportando cada página de tu PDF plantilla a 150+ DPI.
+let bgPortada = null;
+let bgPagina  = null;
+
+try {
+  const p = path.join(__dirname, '..', '..', 'public', 'templates', 'cesvi_portada.png');
+  if (fs.existsSync(p)) bgPortada = fs.readFileSync(p);
+} catch (_) {}
+try {
+  const p = path.join(__dirname, '..', '..', 'public', 'templates', 'cesvi_pagina.png');
+  if (fs.existsSync(p)) bgPagina = fs.readFileSync(p);
+} catch (_) {}
+
+const usarBackground = bgPortada !== null || bgPagina !== null;
+
+
+// Crea un Paragraph con la imagen de fondo flotante para insertar en el Header.
+// Al estar en el encabezado con behindDocument=true, la imagen aparece detrás
+// del texto en TODAS las páginas de esa sección (técnica de marca de agua Word).
+function bgParaFullPage(buffer) {
+  return new Paragraph({
+    children: [
+      new ImageRun({
+        data: buffer,
+        transformation: { width: 816, height: 1056 }, // 8.5" × 11" a 96 DPI
+        type: 'png',
+        floating: {
+          horizontalPosition: {
+            relative: HorizontalPositionRelativeFrom.PAGE,
+            offset: 0,
+          },
+          verticalPosition: {
+            relative: VerticalPositionRelativeFrom.PAGE,
+            offset: 0,
+          },
+          behindDocument: true,
+          allowOverlap: true,
+          wrap: { type: TextWrappingType.NONE },
+        },
+      }),
+    ],
+  });
+}
+
+// ── Encabezado y pie programáticos (se usan cuando no hay fondo PNG) ──────────
+const headerEstandar = new Header({
   children: [
     new Paragraph({
       border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: CYAN, space: 4 } },
       children: [
-        ...(logoRun ? [logoRun] : [new TextRun({ text: 'CESVI MÉXICO', bold: true, size: 28, color: BLUE, font: 'Arial' })]),
+        ...(logoRun
+          ? [logoRun]
+          : [new TextRun({ text: 'CESVI MÉXICO', bold: true, size: 28, color: BLUE, font: 'Arial' })]),
         new TextRun({ text: '\t\t', font: 'Arial' }),
         new TextRun({ text: 'FOR-MPT-RAT-04 Rev. 00', size: 16, color: '888888', font: 'Arial' }),
       ],
@@ -86,7 +142,7 @@ const header = new Header({
   ],
 });
 
-const footer = new Footer({
+const footerEstandar = new Footer({
   children: [
     new Paragraph({
       border: { top: { style: BorderStyle.SINGLE, size: 6, color: CYAN, space: 4 } },
@@ -101,52 +157,89 @@ const footer = new Footer({
   ],
 });
 
+// Pie solo con número de página (cuando el fondo PNG ya incluye el diseño del pie)
+const footerSoloPagina = new Footer({
+  children: [
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [
+        new TextRun({ text: 'Página ', size: 18, color: '888888', font: 'Arial' }),
+        new TextRun({ children: [PageNumber.CURRENT] }),
+      ],
+    }),
+  ],
+});
+
+const headerVacio = new Header({ children: [new Paragraph({ children: [] })] });
+const footerVacio = new Footer({ children: [new Paragraph({ children: [] })] });
+
+// ── Selección de header/footer según disponibilidad de fondo ─────────────────
+const headerPortadaFinal    = (usarBackground && bgPortada)
+  ? new Header({ children: [bgParaFullPage(bgPortada)] })
+  : headerVacio;  // portada sin encabezado programático da aspecto más limpio
+
+const headerContenidoFinal  = (usarBackground && bgPagina)
+  ? new Header({ children: [bgParaFullPage(bgPagina)] })
+  : headerEstandar;
+
+const footerContenidoFinal  = usarBackground
+  ? footerSoloPagina
+  : footerEstandar;
+
+// ── Márgenes de página ────────────────────────────────────────────────────────
+const pageSize = { width: 12240, height: 15840 }; // Carta 8.5" × 11"
+
+// Con fondo PNG: márgenes más generosos para que el texto caiga dentro del
+// área de contenido del template (ajusta si tu plantilla tiene otras proporciones)
+// Portada: top grande para que el texto quede en la zona blanca central
+// (la plantilla CESVI tiene el logo arriba y decoración lateral izquierda)
+const marginPortada = usarBackground
+  ? { top: 4680, right: 1440, bottom: 2880, left: 1800 }  // 3.25" top, 2" bottom, 1.25" left
+  : { top: 1080, right: 1080, bottom: 1080, left: 1080 };
+
+// Contenido: márgenes razonables dentro del área blanca del template
+const marginContenido = usarBackground
+  ? { top: 1800, right: 1080, bottom: 1440, left: 1800 }  // 1.25" top/left, 1" bottom/right
+  : { top: 1080, right: 1080, bottom: 1080, left: 1080 };
+
+// ── Portada ───────────────────────────────────────────────────────────────────
 const tipoDoc   = val(datos.tipo_documento).toUpperCase();
 const modalidad = val(datos.tipo_hecho).toUpperCase();
 
+// Texto de portada en un solo bloque, igual que los reportes reales:
+// "[TIPO], HECHO DE TRÁNSITO, EN SU MODALIDAD [TIPO_HECHO] EN EL QUE SE VIO INVOLUCRADO..."
+const textoCubierta =
+  `${tipoDoc}, HECHO DE TRÁNSITO, EN SU MODALIDAD ${modalidad} ` +
+  `EN EL QUE SE VIO INVOLUCRADO EL VEHÍCULO MARCA ${val(datos.marca).toUpperCase()}, ` +
+  `TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()} ` +
+  `MODELO ${val(datos.anio)}, CON PLACAS DE CIRCULACIÓN ${val(datos.numero_placas).toUpperCase()}, ` +
+  `NÚMERO DE SERIE ${val(datos.vin).toUpperCase()} ` +
+  `CON DIRECCIÓN EN ${val(datos.calle).toUpperCase()}, ${val(datos.municipio).toUpperCase()}.`;
+
 const portada = [
-  lineaVacia(), lineaVacia(), lineaVacia(),
+  lineaVacia(),
   new Paragraph({
-    alignment: AlignmentType.CENTER,
-    spacing: { before: 240, after: 120 },
-    children: [new TextRun({ text: `${tipoDoc} TÉCNICO DEL HECHO DE TRÁNSITO`, bold: true, size: 28, color: BLUE, font: 'Arial' })],
-  }),
-  new Paragraph({
-    alignment: AlignmentType.CENTER,
-    spacing: { before: 80, after: 80 },
-    children: [new TextRun({ text: `EN SU MODALIDAD DE ${modalidad}`, bold: true, size: 24, color: BLUE, font: 'Arial' })],
+    alignment: AlignmentType.LEFT,
+    spacing: { before: 200, after: 200 },
+    children: [new TextRun({ text: textoCubierta, bold: true, size: 22, color: BLACK, font: 'Arial' })],
   }),
   lineaVacia(),
   new Paragraph({
-    alignment: AlignmentType.CENTER,
+    alignment: AlignmentType.LEFT,
     spacing: { before: 80, after: 80 },
-    children: [new TextRun({
-      text: `EN EL QUE SE VIO INVOLUCRADO EL VEHÍCULO: MARCA ${val(datos.marca).toUpperCase()}, ` +
-            `TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()}, ` +
-            `MODELO ${val(datos.anio)}, PLACAS DE CIRCULACIÓN ${val(datos.numero_placas).toUpperCase()}, ` +
-            `NÚMERO DE SERIE ${val(datos.vin).toUpperCase()}`,
-      bold: true, size: 22, color: BLACK, font: 'Arial',
-    })],
+    children: [new TextRun({ text: `SINIESTRO: ${val(datos.numero_siniestro)}.`, bold: true, size: 22, color: BLACK, font: 'Arial' })],
   }),
-  lineaVacia(),
-  new Paragraph({
-    alignment: AlignmentType.CENTER,
-    spacing: { before: 160, after: 80 },
-    children: [new TextRun({ text: `SINIESTRO: ${val(datos.numero_siniestro)}`, bold: true, size: 24, color: BLUE, font: 'Arial' })],
-  }),
-  lineaVacia(), lineaVacia(), lineaVacia(),
-  new Paragraph({ children: [new PageBreak()] }),
 ];
 
+// ── Tabla de contenido ────────────────────────────────────────────────────────
 const seccionesIdx = [
-  ['1', 'OBJETIVO TÉCNICO', '3'],
-  ['2', 'FUNDAMENTOS DEL ESTUDIO', '3'],
-  ['3', 'CARACTERÍSTICAS DEL VEHÍCULO BAJO ESTUDIO', '3'],
-  ['4', 'OBSERVACIÓN DE DAÑOS EN EL VEHÍCULO', '3'],
-  ['5', 'LUGAR DE INTERVENCIÓN', 'X'],
-  ['6', 'CONSIDERACIONES', 'X'],
-  ['7', 'CONSIDERACIONES ADICIONALES', 'X'],
-  ['8', 'CONCLUSIONES', 'X'],
+  ['1', 'OBJETIVO TÉCNICO', ''],
+  ['2', 'FUNDAMENTOS DEL ESTUDIO', ''],
+  ['3', 'CARACTERÍSTICAS DEL VEHÍCULO BAJO ESTUDIO', ''],
+  ['4', 'OBSERVACIÓN DE DAÑOS EN EL VEHÍCULO', ''],
+  ['5', 'LUGAR DE INTERVENCIÓN', ''],
+  ['6', 'CONSIDERACIONES', ''],
+  ['7', 'CONCLUSIONES', ''],
 ];
 const filasIdx = seccionesIdx.map(([n, t, p]) =>
   new TableRow({ children: [
@@ -156,7 +249,7 @@ const filasIdx = seccionesIdx.map(([n, t, p]) =>
   ]}),
 );
 const tablaContenido = [
-  seccion('', 'CONTENIDO'),
+  heading1('', 'CONTENIDO'),
   new Table({
     width: { size: 9360, type: WidthType.DXA },
     columnWidths: [600, 7560, 1200],
@@ -165,8 +258,9 @@ const tablaContenido = [
   new Paragraph({ children: [new PageBreak()] }),
 ];
 
+// ── Sección 1 – Objetivo técnico ──────────────────────────────────────────────
 const seccion1 = [
-  seccion('1', 'OBJETIVO TÉCNICO'),
+  heading1('1', 'OBJETIVO TÉCNICO'),
   parrafo(
     `El presente ${tipoDoc.toLowerCase()} tiene como objetivo determinar si los daños que presenta el ` +
     `vehículo: marca ${val(datos.marca)}, tipo ${val(datos.modelo)}, color ${val(datos.color)}, ` +
@@ -178,8 +272,9 @@ const seccion1 = [
   lineaVacia(),
 ];
 
+// ── Sección 2 – Fundamentos del estudio ──────────────────────────────────────
 const seccion2 = [
-  seccion('2', 'FUNDAMENTOS DEL ESTUDIO'),
+  heading1('2', 'FUNDAMENTOS DEL ESTUDIO'),
   parrafo(
     `Se analizará el hecho bajo estudio aplicando los métodos científicos, las técnicas de investigación ` +
     `desarrolladas por las ciencias auxiliares de la criminalística; así como en la observación de los ` +
@@ -189,14 +284,16 @@ const seccion2 = [
   lineaVacia(),
 ];
 
+// ── Sección 3 – Características del vehículo ─────────────────────────────────
 const filasVehiculo = [
-  ['DATOS', 'VEHÍCULO A'],
+  ['DATOS', `VEHÍCULO ${val(datos.rol)}`],
   ['MARCA',        val(datos.marca)],
   ['TIPO',         val(datos.modelo)],
   ['MODELO',       val(datos.anio)],
   ['COLOR',        val(datos.color)],
   ['NO. DE SERIE', val(datos.vin)],
   ['PLACAS',       val(datos.numero_placas)],
+  ['ROL',          val(datos.rol)],
 ].map(([k, v], i) => new TableRow({
   children: [
     celda(k, { width: 4680, bold: i === 0, fill: i === 0 ? BLUE : (i % 2 === 0 ? GRAY_BG : WHITE), color: i === 0 ? WHITE : BLACK }),
@@ -204,12 +301,12 @@ const filasVehiculo = [
   ],
 }));
 const seccion3 = [
-  seccion('3', 'CARACTERÍSTICAS DEL VEHÍCULO BAJO ESTUDIO'),
+  heading1('3', 'CARACTERÍSTICAS DEL VEHÍCULO BAJO ESTUDIO'),
   new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [4680, 4680], rows: filasVehiculo }),
   lineaVacia(),
 ];
 
-// ── Helper: cuadrícula de 2 columnas de fotos con pie de foto ────────────────
+// ── Sección 4 – Observación de daños (fotos) ─────────────────────────────────
 function buildFotoGrid(fotos) {
   const rows = [];
   for (let i = 0; i < fotos.length; i += 2) {
@@ -219,8 +316,7 @@ function buildFotoGrid(fotos) {
       try {
         const imgData = fs.readFileSync(fotos[j].ruta);
         const ext = fotos[j].ruta.split('.').pop().toLowerCase();
-        const tipo = ext === 'png' ? 'png' : 'jpg';
-        imgChild = new ImageRun({ data: imgData, transformation: { width: 275, height: 206 }, type: tipo });
+        imgChild = new ImageRun({ data: imgData, transformation: { width: 275, height: 206 }, type: ext === 'png' ? 'png' : 'jpg' });
       } catch (_) {
         imgChild = new TextRun({ text: '[imagen no disponible]', size: 18, color: '888888', font: 'Arial' });
       }
@@ -253,52 +349,47 @@ function buildFotoGrid(fotos) {
   return rows;
 }
 
-const fotosArr = Array.isArray(datos.fotos) ? datos.fotos : [];
-
-// Orden canónico de las secciones de foto
+const fotosArr  = Array.isArray(datos.fotos) ? datos.fotos : [];
 const ORDEN_FOTOS = ['Frontal','Lateral Derecho','Lateral Izquierdo','Posterior','Partes Bajas','Habitaculo','Lugar de los Hechos','Objeto Involucrado'];
-
-// Agrupar fotos por tipo
 const fotosPorTipo = fotosArr.reduce((acc, f) => {
   const t = f.tipo || 'Fotografías';
   if (!acc[t]) acc[t] = [];
   acc[t].push(f);
   return acc;
 }, {});
-
-// Tipos en orden canónico primero, luego los que no están en la lista
 const tiposOrdenados = [
   ...ORDEN_FOTOS.filter(t => fotosPorTipo[t]),
   ...Object.keys(fotosPorTipo).filter(t => !ORDEN_FOTOS.includes(t)),
 ];
 
-const seccion4 = [];
-seccion4.push(seccion('4', 'OBSERVACIÓN DE DAÑOS EN EL VEHÍCULO'));
-seccion4.push(parrafo(
-  `A continuación se presentan las fotografías del vehículo: MARCA ${val(datos.marca).toUpperCase()}, ` +
-  `TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()}, ` +
-  `MODELO ${val(datos.anio)}, PLACAS ${val(datos.numero_placas)}.`
-));
-seccion4.push(lineaVacia());
+const seccion4 = [
+  heading1('4', 'OBSERVACIÓN DE DAÑOS EN EL VEHÍCULO'),
+  parrafo(
+    `A continuación se presentan las fotografías del vehículo: MARCA ${val(datos.marca).toUpperCase()}, ` +
+    `TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()}, ` +
+    `MODELO ${val(datos.anio)}, PLACAS ${val(datos.numero_placas)}.`
+  ),
+  lineaVacia(),
+];
 
 if (fotosArr.length === 0) {
   seccion4.push(parrafo('Sin fotografías registradas.'));
 } else {
   tiposOrdenados.forEach((tipo, idx) => {
-    seccion4.push(subseccion(`4.${idx + 1}`, tipo.toUpperCase()));
-    const gridRows = buildFotoGrid(fotosPorTipo[tipo]);
+    seccion4.push(heading2(`4.${idx + 1}`, tipo.toUpperCase()));
     seccion4.push(new Table({
       width: { size: 9360, type: WidthType.DXA },
       columnWidths: [4680, 4680],
-      rows: gridRows,
+      rows: buildFotoGrid(fotosPorTipo[tipo]),
     }));
     seccion4.push(lineaVacia());
   });
 }
 seccion4.push(lineaVacia());
 
+// ── Sección 5 – Lugar de intervención ────────────────────────────────────────
 const seccion5 = [
-  seccion('5', 'LUGAR DE INTERVENCIÓN'),
+  heading1('5', 'LUGAR DE INTERVENCIÓN'),
   parrafo(
     `El lugar declarado como de intervención se ubica en ${val(datos.calle)}, ` +
     `perteneciente a ${val(datos.municipio)}, en el estado de ${val(datos.estado)}.`
@@ -312,49 +403,61 @@ const seccion5 = [
   lineaVacia(),
 ];
 
+// ── Sección 6 – Consideraciones ──────────────────────────────────────────────
+const dinamicaFases = val(datos.dinamica_fases);
 const seccion6 = [
-  seccion('6', 'CONSIDERACIONES'),
-  parrafo('Se analizará el hecho bajo estudio aplicando los métodos científicos, técnicas de investigación desarrolladas por las ciencias Auxiliares de la Criminalística; así como en información proporcionada por la compañía de seguros e información desarrollada por CESVI MÉXICO.'),
+  heading1('6', 'CONSIDERACIONES'),
+  parrafo(
+    'Se realizará el hecho bajo estudio aplicando los métodos científicos, método inductivo, método ' +
+    'deductivo y método descriptivo, así como técnicas de investigación desarrolladas por las ciencias ' +
+    'Auxiliares de la Criminalística; así como en la información proporcionada por la compañía de seguros ' +
+    'e información desarrollada por CESVI MÉXICO.'
+  ),
   lineaVacia(),
-  subseccion('6.1', 'Declaración del conductor'),
+  heading2('6.1', 'Declaración del conductor'),
   parrafo(val(datos.narracion_hechos)),
   lineaVacia(),
-  subseccion('6.2', 'Principio de intercambio o transferencia de materiales'),
+  heading2('6.2', 'Principio de intercambio o transferencia de materiales'),
   parrafo(val(datos.intercambio_materiales)),
   lineaVacia(),
-  subseccion('6.3', 'Principio de correspondencia de características'),
+  heading2('6.3', 'Principio de correspondencia de características'),
   parrafo(val(datos.correspondencia)),
   lineaVacia(),
+  heading2('6.4', 'Dinámica de colisión'),
+  parrafo(dinamicaFases !== '---' ? dinamicaFases : 'Sin dinámica de colisión registrada.'),
+  lineaVacia(),
 ];
+
+// ── Sección 7 – Conclusiones ──────────────────────────────────────────────────
+const conclusionesTxt      = val(datos.conclusiones);
+const conclusionesParrafos = conclusionesTxt
+  .split('\n')
+  .map(l => l.trim())
+  .filter(Boolean)
+  .map((c, i) => parrafo(`${i + 1}.- ${c}`, { before: 100, after: 100 }));
 
 const seccion7 = [
-  seccion('7', 'CONSIDERACIONES ADICIONALES'),
-  parrafo('---'),
+  heading1('7', 'CONCLUSIONES'),
+  ...(conclusionesParrafos.length > 0 ? conclusionesParrafos : [parrafo('Sin conclusiones registradas.')]),
   lineaVacia(),
 ];
 
-const conclusionesTxt = val(datos.conclusiones);
-const conclusionesParrafos = conclusionesTxt.split('\n').filter(Boolean).map((c, i) =>
-  parrafo(`${i + 1}.- ${c}`, { before: 100, after: 100 })
-);
-const seccion8 = [
-  seccion('8', 'CONCLUSIONES'),
-  ...(conclusionesParrafos.length > 0 ? conclusionesParrafos : [parrafo('---')]),
-  lineaVacia(),
-];
-
+// ── Bloque de firmas ──────────────────────────────────────────────────────────
 const firma = [
   lineaVacia(),
   new Paragraph({
     alignment: AlignmentType.RIGHT,
-    children: [new TextRun({ text: `Toluca, Estado de México a ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}.`, size: 20, font: 'Arial' })],
+    children: [new TextRun({
+      text: `Toluca, Estado de México a ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
+      size: 20, font: 'Arial',
+    })],
   }),
   lineaVacia(),
   new Paragraph({
     alignment: AlignmentType.CENTER,
     children: [new TextRun({ text: 'Atentamente', size: 20, font: 'Arial' })],
   }),
-  lineaVacia(), lineaVacia(),
+  lineaVacia(), lineaVacia(), lineaVacia(), lineaVacia(), lineaVacia(), lineaVacia(), lineaVacia(), lineaVacia(),
   new Table({
     width: { size: 9360, type: WidthType.DXA },
     columnWidths: [4680, 4680],
@@ -385,6 +488,9 @@ const firma = [
   }),
 ];
 
+// ── Documento Word con 2 secciones ────────────────────────────────────────────
+// Sección 1: Portada (sin encabezado/pie visibles, fondo propio si hay PNG)
+// Sección 2: Contenido (encabezado/pie CESVI, fondo propio si hay PNG)
 const doc = new Document({
   styles: {
     default: {
@@ -403,29 +509,36 @@ const doc = new Document({
       },
     ],
   },
-  sections: [{
-    properties: {
-      page: {
-        size: { width: 12240, height: 15840 },
-        margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 },
+  sections: [
+    // ── Portada ──────────────────────────────────────────────────────────────
+    {
+      properties: {
+        page: { size: pageSize, margin: marginPortada },
       },
+      headers: { default: headerPortadaFinal },
+      footers: { default: footerVacio },
+      children: portada,
     },
-    headers: { default: header },
-    footers: { default: footer },
-    children: [
-      ...portada,
-      ...tablaContenido,
-      ...seccion1,
-      ...seccion2,
-      ...seccion3,
-      ...seccion4,
-      ...seccion5,
-      ...seccion6,
-      ...seccion7,
-      ...seccion8,
-      ...firma,
-    ],
-  }],
+    // ── Contenido ─────────────────────────────────────────────────────────────
+    {
+      properties: {
+        page: { size: pageSize, margin: marginContenido },
+      },
+      headers: { default: headerContenidoFinal },
+      footers: { default: footerContenidoFinal },
+      children: [
+        ...tablaContenido,
+        ...seccion1,
+        ...seccion2,
+        ...seccion3,
+        ...seccion4,
+        ...seccion5,
+        ...seccion6,
+        ...seccion7,
+        ...firma,
+      ],
+    },
+  ],
 });
 
 Packer.toBuffer(doc).then(buf => {

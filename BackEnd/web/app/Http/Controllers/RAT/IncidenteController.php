@@ -11,14 +11,37 @@ use Illuminate\Validation\Rule;
 
 class IncidenteController extends Controller
 {
+    private function getJwtUser(Request $request)
+    {
+        return $request->attributes->get('user');
+    }
+
+    private function isAdmin(Request $request): bool
+    {
+        return ($this->getJwtUser($request)->email ?? '') === 'admin@cesvi.com';
+    }
+
+    private function checkOwnership(Request $request, Incidente $incidente): void
+    {
+        if ($this->isAdmin($request)) return;
+
+        $user = $this->getJwtUser($request);
+        if ($incidente->id_usuario_perito != ($user->id_user ?? null)) {
+            abort(403, 'No tienes permiso para acceder a este expediente.');
+        }
+    }
+
     /**
-     * GET /api/rat/incidentes
+     * GET /v1/rat/incidentes
      *
-     * Lista paginada con filtros. Alimenta la pantalla "Expedientes RAT".
-     * Filtros disponibles: buscar (texto), desde, hasta, tipo_hecho, estado, perito_id
+     * Lista paginada con filtros. Usuarios normales solo ven sus propios expedientes;
+     * el admin ve todos.
      */
     public function index(Request $request): JsonResponse
     {
+        $user    = $this->getJwtUser($request);
+        $isAdmin = ($user->email ?? '') === 'admin@cesvi.com';
+
         $query = DB::table('RAT_INCIDENTE AS i')
             ->join('RAT_CAT_TIPO_HECHO AS th', 'i.tipo_hecho_id', '=', 'th.id')
             ->leftJoin('RAT_INCIDENTE_VEHICULO AS iv', 'iv.incidente_id', '=', 'i.id')
@@ -40,12 +63,15 @@ class IncidenteController extends Controller
                 'cv.delta_exceso_kmh'
             );
 
-        // Búsqueda por número de siniestro
+        // Usuarios normales solo ven sus propios expedientes
+        if (!$isAdmin) {
+            $query->where('i.id_usuario_perito', $user->id_user);
+        }
+
         if ($buscar = $request->input('buscar')) {
             $query->where('i.numero_siniestro', 'like', "%{$buscar}%");
         }
 
-        // Filtro por rango de fechas
         if ($desde = $request->input('desde')) {
             $query->where('i.fecha_hecho', '>=', $desde);
         }
@@ -53,24 +79,21 @@ class IncidenteController extends Controller
             $query->where('i.fecha_hecho', '<=', $hasta);
         }
 
-        // Filtro por tipo de hecho
         if ($tipoHecho = $request->input('tipo_hecho_id')) {
             $query->where('i.tipo_hecho_id', $tipoHecho);
         }
 
-        // Filtro por estado (0=Abierto, 1=En revisión, 2=Finalizado)
         if ($request->filled('estado')) {
             $query->where('i.estado', $request->input('estado'));
         }
 
-        // Filtro por perito
-        if ($peritoId = $request->input('perito_id')) {
+        // Solo el admin puede filtrar por perito específico
+        if ($isAdmin && ($peritoId = $request->input('perito_id'))) {
             $query->where('i.id_usuario_perito', $peritoId);
         }
 
-        $total = $query->count();
         $perPage = $request->input('per_page', 10);
-        $data = $query->orderByDesc('i.fecha_hecho')->paginate($perPage);
+        $data    = $query->orderByDesc('i.fecha_hecho')->paginate($perPage);
 
         return response()->json([
             'data'  => $data->items(),
@@ -84,59 +107,58 @@ class IncidenteController extends Controller
     }
 
     /**
-     * GET /api/rat/incidentes/{uuid}
+     * GET /v1/rat/incidentes/{uuid}
      *
-     * Detalle completo de un expediente. Carga todas las secciones
-     * del wizard para permitir ver / editar el expediente.
+     * Detalle completo. Solo el propietario o el admin pueden acceder.
      */
-    public function show($uuid)
+    public function show(Request $request, $uuid): JsonResponse
     {
-        $incidente = Incidente::where('uuid', $uuid)
-            ->with([
-                'tipoHecho',
-                'perito',
-                'ubicacionVia.tipoVia',
-                'ubicacionVia.tipoTrazo',
-                'ubicacionVia.clima',
-                'ubicacionVia.tipoPavimento',
-                'ubicacionVia.condicionSuperficie',
-                'ubicacionVia.condicionPavimento',
-                'ubicacionVia.orientacion',
-                'ubicacionVia.sentidoVialidad',
-                'vehiculos.vehiculo',
-                'vehiculos.color',
-                'vehiculos.estadoNeumatico',
-                'vehiculos.ocupacionCarga',
-                'vehiculos.deformacionMedicion.tipoGolpe',
-                'vehiculos.calculoVelocidad',
-                'vehiculos.narrativaDinamica',
-                'vehiculos.principiosForenses.conclusiones',
-                'vehiculos.fotos.tipoFoto',
-                'reportes',
-            ])
-            ->firstOrFail();
+        $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
+        $incidente->load([
+            'tipoHecho',
+            'perito',
+            'ubicacionVia.tipoVia',
+            'ubicacionVia.tipoTrazo',
+            'ubicacionVia.clima',
+            'ubicacionVia.tipoPavimento',
+            'ubicacionVia.condicionSuperficie',
+            'ubicacionVia.condicionPavimento',
+            'ubicacionVia.orientacion',
+            'ubicacionVia.sentidoVialidad',
+            'vehiculos.vehiculo',
+            'vehiculos.color',
+            'vehiculos.estadoNeumatico',
+            'vehiculos.ocupacionCarga',
+            'vehiculos.deformacionMedicion.tipoGolpe',
+            'vehiculos.calculoVelocidad',
+            'vehiculos.narrativaDinamica',
+            'vehiculos.principiosForenses.conclusiones',
+            'vehiculos.fotos.tipoFoto',
+            'reportes',
+        ]);
 
         return response()->json($incidente);
     }
 
     /**
-     * DELETE /api/rat/incidentes/{uuid}
+     * DELETE /v1/rat/incidentes/{uuid}
      *
-     * Elimina un expediente completo con todos sus registros hijos.
+     * Solo el propietario o el admin pueden eliminar.
      */
-    public function destroy(string $uuid): JsonResponse
+    public function destroy(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
 
         DB::transaction(function () use ($incidente) {
             $id = $incidente->id;
 
-            // Hijos de RAT_INCIDENTE_VEHICULO
             $ivIds = DB::table('RAT_INCIDENTE_VEHICULO')
                 ->where('incidente_id', $id)->pluck('id');
 
             if ($ivIds->isNotEmpty()) {
-                // RAT_CONCLUSION → hijos de RAT_PRINCIPIOS_FORENSES
                 $pfIds = DB::table('RAT_PRINCIPIOS_FORENSES')
                     ->whereIn('incidente_vehiculo_id', $ivIds)->pluck('id');
                 if ($pfIds->isNotEmpty()) {
@@ -157,7 +179,6 @@ class IncidenteController extends Controller
                 DB::table('RAT_INCIDENTE_VEHICULO')->where('incidente_id', $id)->delete();
             }
 
-            // Hijos de RAT_UBICACION_VIA
             $uvIds = DB::table('RAT_UBICACION_VIA')
                 ->where('incidente_id', $id)->pluck('id');
             if ($uvIds->isNotEmpty()) {
@@ -165,10 +186,7 @@ class IncidenteController extends Controller
                     ->whereIn('ubicacion_via_id', $uvIds)->delete();
             }
 
-            // IA solicitudes con referencia directa al incidente
             DB::table('RAT_IA_SOLICITUD')->where('incidente_id', $id)->delete();
-
-            // Hijos directos del incidente
             DB::table('RAT_UBICACION_VIA')->where('incidente_id', $id)->delete();
             DB::table('RAT_REPORTE')->where('incidente_id', $id)->delete();
 
@@ -178,6 +196,11 @@ class IncidenteController extends Controller
         return response()->json(['message' => 'Expediente eliminado.'], 200);
     }
 
+    /**
+     * PATCH /v1/rat/incidentes/{uuid}/estado
+     *
+     * Solo el propietario o el admin pueden cambiar el estado.
+     */
     public function cambiarEstado(Request $request, string $uuid): JsonResponse
     {
         $this->validate($request, [
@@ -185,6 +208,7 @@ class IncidenteController extends Controller
         ]);
 
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
         $incidente->update(['estado' => $request->estado]);
 
         return response()->json([

@@ -69,7 +69,7 @@ $router->group(['prefix' => 'v1/rat', 'middleware' => 'jwt'], function () use ($
     $router->put('/wizard/{uuid}/paso3-ocupantes',              'RAT\ExpedienteWizardController@updatePaso3');
     $router->put('/wizard/{uuid}/paso4-via',                    'RAT\ExpedienteWizardController@updatePaso4');
     $router->post('/wizard/{uuid}/paso5-evidencia',             'RAT\ExpedienteWizardController@storePaso5');
-    $router->delete('/wizard/{uuid}/paso5-evidencia/{id}',      'RAT\ExpedienteWizardController@destroyFoto');
+    $router->delete('/wizard/{uuid}/paso5-evidencia/{fotoId}',  'RAT\ExpedienteWizardController@destroyFoto');
     $router->put('/wizard/{uuid}/paso6-deformacion',            'RAT\ExpedienteWizardController@updatePaso6');
     $router->post('/wizard/{uuid}/paso7-calculo',               'RAT\ExpedienteWizardController@storePaso7');
     $router->put('/wizard/{uuid}/paso8-narrativa',              'RAT\ExpedienteWizardController@updatePaso8');
@@ -82,10 +82,13 @@ $router->group(['prefix' => 'v1/rat', 'middleware' => 'jwt'], function () use ($
     $router->delete('/evidencias/{id}',     'RAT\EvidenciaController@destroy');
 
     // Catálogos (rutas específicas antes de las paramétricas)
-    $router->get('/catalogos/peritos',  'RAT\CatalogoController@peritos');
-    $router->get('/catalogos/rigidez',  'RAT\CatalogoController@rigidez');
-    $router->get('/catalogos/ mu',       'RAT\CatalogoController@mu');
-    $router->get('/catalogos',          'RAT\CatalogoController@index');
+    $router->get('/catalogos/peritos',         'RAT\CatalogoController@peritos');
+    $router->get('/catalogos/rigidez',         'RAT\CatalogoController@rigidez');
+    $router->get('/catalogos/mu',              'RAT\CatalogoController@mu');
+    $router->get('/catalogos',                 'RAT\CatalogoController@index');
+    $router->post('/catalogos/{cat}',          'RAT\CatalogoController@store');
+    $router->put('/catalogos/{cat}/{id}',      'RAT\CatalogoController@update');
+    $router->delete('/catalogos/{cat}/{id}',   'RAT\CatalogoController@destroy');
 
     // Perfil (ruta específica antes de la genérica)
     $router->get('/perfil/expedientes',          'RAT\PerfilController@misExpedientes');

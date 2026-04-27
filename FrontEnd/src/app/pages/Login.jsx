@@ -136,11 +136,6 @@ export function Login() {
               {loading ? "Verificando..." : "Iniciar Sesión"}
             </button>
 
-            <div className="text-center">
-              <button type="button" className="text-xs text-[#00ADCF] hover:underline">
-                ¿Olvidaste tu contraseña? Recuperar acceso
-              </button>
-            </div>
           </form>
         </div>
 

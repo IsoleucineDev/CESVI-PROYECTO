@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Check, ChevronLeft, ChevronRight,
-  Upload, X, AlertCircle, FileText, Trash2, ImageIcon, Maximize2, Minimize2, MapPin,
+  Upload, X, AlertCircle, FileText, Trash2, ImageIcon, MapPin, Maximize2,
 } from "lucide-react";
 import {
   createIncidentePaso1,
@@ -136,12 +136,104 @@ function StepIncidente() {
 function StepVehiculo() {
   const { form, setField, cats } = useForm();
   const f = (k) => form[k] ?? "";
+  const [vinLoading, setVinLoading]   = useState(false);
+  const [vinModal,   setVinModal]     = useState(null); // { marca, modelo, anio, tipo }
+  const [vinError,   setVinError]     = useState("");
+
+  const buscarPorVin = async () => {
+    const vin = form.vin?.trim();
+    if (!vin || vin.length < 11) { setVinError("Ingresa al menos 11 caracteres del VIN."); return; }
+    setVinLoading(true);
+    setVinError("");
+    try {
+      const res  = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(vin)}?format=json`);
+      const json = await res.json();
+      const r    = json.Results?.[0] ?? {};
+      const get  = (k) => (r[k] && r[k] !== "0" && r[k] !== "Not Applicable") ? r[k] : "";
+      const marca  = get("Make");
+      const modelo = get("Model");
+      const serie  = get("Series") || get("Trim");
+      const anio   = get("ModelYear");
+      const pais   = get("PlantCountry");
+      const gvwr   = get("GVWR") || "";
+      // GVWR > 10,001 lbs (~4,536 kg) = heavy / pesado
+      const gvwrNum = parseFloat(gvwr.replace(/[^0-9.]/g, ""));
+      const tipo   = (!isNaN(gvwrNum) && gvwrNum > 10000)
+        ? "pesado"
+        : (get("VehicleType")?.toLowerCase().includes("truck") ? "pesado" : "ligero");
+      if (!marca && !modelo) { setVinError("No se encontraron datos para este VIN en la base global."); return; }
+      setVinModal({ marca, modelo, serie, anio, tipo, pais });
+    } catch {
+      setVinError("No se pudo consultar la API. Verifica tu conexión.");
+    } finally {
+      setVinLoading(false);
+    }
+  };
+
+  const aplicarVin = () => {
+    if (!vinModal) return;
+    if (vinModal.marca)  setField("marca",       vinModal.marca);
+    if (vinModal.modelo) setField("submarca",     vinModal.modelo);
+    if (vinModal.serie)  setField("nombre_modelo", vinModal.serie);
+    if (vinModal.anio)   setField("anio_modelo",  vinModal.anio);
+    if (vinModal.tipo)   setField("tipo_vehiculo", vinModal.tipo);
+    setVinModal(null);
+  };
+
   return (
+    <>
+      {vinModal && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-[9999]" onClick={() => setVinModal(null)} />
+          <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
+            <div className="bg-white rounded shadow-xl w-full max-w-sm border border-gray-200">
+              <div className="px-4 py-3 border-b border-gray-200 bg-amber-50">
+                <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
+                  <AlertCircle size={16} /> Corrobore los datos antes de guardar
+                </div>
+                <p className="text-xs text-amber-600 mt-1">Los datos de la API pueden ser imprecisos. Verifique que correspondan al vehículo real.</p>
+              </div>
+              <div className="px-4 py-3 flex flex-col gap-2">
+                {[
+                  ["Marca",           vinModal.marca],
+                  ["Modelo",          vinModal.modelo],
+                  ["Serie / Versión", vinModal.serie],
+                  ["Año",             vinModal.anio],
+                  ["Tipo",            vinModal.tipo],
+                  ["País de fabricación", vinModal.pais],
+                ].map(([l, v]) => v && (
+                  <div key={l} className="flex justify-between text-xs">
+                    <span className="text-gray-500">{l}</span>
+                    <span className="font-medium text-gray-700">{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50">
+                <button onClick={() => setVinModal(null)} className="flex-1 py-1.5 text-xs border border-gray-300 rounded text-gray-600">Cancelar</button>
+                <button onClick={aplicarVin} className="flex-1 py-1.5 text-xs text-white rounded" style={{ backgroundColor: "#00ADCF" }}>Aplicar datos</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     <div className="grid grid-cols-3 gap-4">
       <div className="col-span-3">
         <Field label="VIN / Número de Serie" req>
-          <input className={inp} placeholder="3VWFE21C04M000001" maxLength={17}
-            value={f("vin")} onChange={(e) => setField("vin", e.target.value)} />
+          <div className="flex gap-2">
+            <input className={`${inp} flex-1`} placeholder="3VWFE21C04M000001" maxLength={17}
+              value={f("vin")} onChange={(e) => { setField("vin", e.target.value); setVinError(""); }} />
+            <button
+              type="button"
+              onClick={buscarPorVin}
+              disabled={vinLoading}
+              className="px-3 py-1.5 text-xs text-white rounded shrink-0 disabled:opacity-50"
+              style={{ backgroundColor: "#1F6AA5" }}
+              title="Buscar datos del vehículo mediante VIN (API NHTSA)"
+            >
+              {vinLoading ? "…" : "Buscar datos"}
+            </button>
+          </div>
+          {vinError && <span className="text-xs text-red-500 mt-0.5 block">{vinError}</span>}
         </Field>
       </div>
       <Field label="Marca" req>
@@ -212,6 +304,7 @@ function StepVehiculo() {
           value={f("entrevia_trasera_mm")} onChange={(e) => setField("entrevia_trasera_mm", e.target.value)} />
       </Field>
     </div>
+    </>
   );
 }
 
@@ -274,13 +367,13 @@ function StepOcupantes() {
 
 // ── Mapa Leaflet ──────────────────────────────────────────────────────────────
 function MapaPicker({ lat, lng, onLocationChange }) {
-  const containerRef   = useRef(null);
-  const mapRef         = useRef(null);
-  const markerRef      = useRef(null);
-  const mountedRef     = useRef(true);
-  const [expanded, setExpanded]           = useState(false);
-  const [pendingLoc, setPendingLoc]       = useState(null); // {lat, lng, geo}
-  const [showHint, setShowHint]           = useState(true);
+  const containerRef        = useRef(null);
+  const mapRef              = useRef(null);
+  const markerRef           = useRef(null);
+  const mountedRef          = useRef(true);
+  const onLocationChangeRef = useRef(onLocationChange);
+
+  useEffect(() => { onLocationChangeRef.current = onLocationChange; }, [onLocationChange]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -315,7 +408,7 @@ function MapaPicker({ lat, lng, onLocationChange }) {
           );
           geo = await resp.json();
         } catch {}
-        if (mountedRef.current) setPendingLoc({ lat: clat, lng: clng, geo });
+        if (mountedRef.current) onLocationChangeRef.current(clat, clng, geo);
       });
       mapRef.current = map;
     };
@@ -345,86 +438,11 @@ function MapaPicker({ lat, lng, onLocationChange }) {
     }
   }, [lat, lng]);
 
-  useEffect(() => {
-    if (mapRef.current) setTimeout(() => mapRef.current?.invalidateSize(), 50);
-  }, [expanded]);
-
-  const handleConfirm = () => {
-    if (pendingLoc) {
-      onLocationChange(pendingLoc.lat, pendingLoc.lng, pendingLoc.geo);
-      setPendingLoc(null);
-    }
-  };
-
-  const addr = pendingLoc?.geo?.address;
-  const lugar = addr
-    ? [addr.road || addr.suburb, addr.city || addr.town || addr.village || addr.municipality, addr.state]
-        .filter(Boolean).join(", ")
-    : null;
-
   return (
-    <div className="relative">
-      {/* Instrucciones */}
-      {showHint && (
-        <div className="absolute top-2 left-2 z-10 flex items-center gap-2 bg-white/90 border border-gray-200 rounded px-2.5 py-1.5 text-xs text-gray-600 shadow-sm">
-          <MapPin size={12} style={{ color: "#00ADCF" }} />
-          <span>Rueda = zoom · Arrastra = navegar · Clic = marcar</span>
-          <button type="button" onClick={() => setShowHint(false)} className="text-gray-400 hover:text-gray-600 ml-1">
-            <X size={12} />
-          </button>
-        </div>
-      )}
-
-      {/* Botón fullscreen */}
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="absolute top-2 right-2 z-10 bg-white/90 border border-gray-200 rounded p-1.5 text-gray-500 hover:text-[#00ADCF] shadow-sm"
-        title={expanded ? "Reducir mapa" : "Ampliar mapa"}
-      >
-        {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-      </button>
-
-      {/* Mapa */}
-      <div
-        ref={containerRef}
-        style={{ height: expanded ? 480 : 280, width: "100%", borderRadius: 6, border: "1px solid #e5e7eb", transition: "height 0.2s ease" }}
-      />
-
-      {/* Diálogo de confirmación de ubicación */}
-      {pendingLoc && (
-        <div className="absolute inset-0 z-20 flex items-end justify-center pb-4" style={{ pointerEvents: "none" }}>
-          <div className="bg-white rounded shadow-lg border border-gray-200 px-4 py-3 mx-2 w-full max-w-sm" style={{ pointerEvents: "auto" }}>
-            <div className="flex items-center gap-2 mb-2">
-              <MapPin size={14} style={{ color: "#00ADCF" }} />
-              <span className="text-xs font-medium text-gray-700">¿Confirmar ubicación seleccionada?</span>
-            </div>
-            <div className="text-xs text-gray-500 mb-1">
-              <span className="font-medium">Lat:</span> {pendingLoc.lat.toFixed(6)} &nbsp;
-              <span className="font-medium">Lng:</span> {pendingLoc.lng.toFixed(6)}
-            </div>
-            {lugar && <div className="text-xs text-gray-600 mb-3">{lugar}</div>}
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setPendingLoc(null)}
-                className="px-3 py-1 text-xs border border-gray-300 rounded text-gray-600 hover:border-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                className="px-3 py-1 text-xs text-white rounded"
-                style={{ backgroundColor: "#00ADCF" }}
-              >
-                Sí, agregar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <div
+      ref={containerRef}
+      style={{ height: 260, width: "100%", borderRadius: 6, border: "1px solid #e5e7eb" }}
+    />
   );
 }
 
@@ -447,42 +465,51 @@ function StepVia() {
   }, [setField]);
 
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <Field label="Km / Punto de Referencia">
-        <input className={inp} placeholder="Por llenar" maxLength={100}
-          value={f("km_punto")} onChange={(e) => setField("km_punto", e.target.value)} />
-      </Field>
-      <Field label="Municipio / Estado" req>
-        <input className={inp} placeholder="Por llenar" maxLength={200}
-          value={f("municipio")} onChange={(e) => setField("municipio", e.target.value)} />
-      </Field>
-      <Field label="Calle / Referencia">
-        <input className={inp} placeholder="Por llenar" maxLength={200}
-          value={f("calle")} onChange={(e) => setField("calle", e.target.value)} />
-      </Field>
-      <Field label="Velocidad Máxima Permitida (km/h)" req>
-        <input type="number" min="0" max="300" className={inp} placeholder="Por llenar"
-          value={f("velocidad_maxima_permitida_kmh")}
-          onChange={(e) => setField("velocidad_maxima_permitida_kmh", e.target.value)} />
-      </Field>
-      <CatSel field="tipo_via_id"             label="Tipo de Vía"             items={cats?.tipos_via} />
-      <CatSel field="tipo_trazo_id"           label="Tipo de Trazo"           items={cats?.tipos_trazo} />
-      <CatSel field="condicion_superficie_id" label="Condición de Superficie" items={cats?.condiciones_superficie} />
-      <CatSel field="condicion_pavimento_id"  label="Condición de Pavimento"  items={cats?.condiciones_pavimento} />
-      <CatSel field="tipo_pavimento_id"       label="Tipo de Pavimento"       items={cats?.tipos_pavimento} />
-      <CatSel field="clima_id"                label="Clima"                   items={cats?.climas} />
-      <CatSel field="orientacion_id"          label="Orientación de Vía"      items={cats?.orientaciones_via} />
-      <CatSel field="sentido_vialidad_id"     label="Sentido de Vialidad"     items={cats?.sentidos_vialidad} />
-      <Field label="Latitud">
-        <input type="number" step="0.000001" className={inp} placeholder="Ej: 19.432600"
-          value={f("lat")} onChange={(e) => setField("lat", e.target.value)} />
-      </Field>
-      <Field label="Longitud">
-        <input type="number" step="0.000001" className={inp} placeholder="Ej: -99.133200"
-          value={f("lng")} onChange={(e) => setField("lng", e.target.value)} />
-      </Field>
-      <div className="col-span-2">
-        <div className="text-xs text-gray-500 mb-1">Haz clic en el mapa para colocar el marcador — se rellenarán los campos automáticamente</div>
+    <div className="flex flex-col gap-4">
+      {/* Sección: Datos de la vía */}
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Municipio / Estado" req>
+          <input className={inp} placeholder="Por llenar" maxLength={200}
+            value={f("municipio")} onChange={(e) => setField("municipio", e.target.value)} />
+        </Field>
+        <Field label="Calle / Referencia">
+          <input className={inp} placeholder="Por llenar" maxLength={200}
+            value={f("calle")} onChange={(e) => setField("calle", e.target.value)} />
+        </Field>
+        <Field label="Km / Punto de Referencia">
+          <input className={inp} placeholder="Por llenar" maxLength={100}
+            value={f("km_punto")} onChange={(e) => setField("km_punto", e.target.value)} />
+        </Field>
+        <Field label="Velocidad Máxima Permitida (km/h)" req>
+          <input type="number" min="0" max="300" className={inp} placeholder="Por llenar"
+            value={f("velocidad_maxima_permitida_kmh")}
+            onChange={(e) => setField("velocidad_maxima_permitida_kmh", e.target.value)} />
+        </Field>
+        <CatSel field="tipo_via_id"             label="Tipo de Vía"             items={cats?.tipos_via} />
+        <CatSel field="tipo_trazo_id"           label="Tipo de Trazo"           items={cats?.tipos_trazo} />
+        <CatSel field="condicion_superficie_id" label="Condición de Superficie" items={cats?.condiciones_superficie} />
+        <CatSel field="condicion_pavimento_id"  label="Condición de Pavimento"  items={cats?.condiciones_pavimento} />
+        <CatSel field="tipo_pavimento_id"       label="Tipo de Pavimento"       items={cats?.tipos_pavimento} />
+        <CatSel field="clima_id"                label="Clima"                   items={cats?.climas} />
+        <CatSel field="orientacion_id"          label="Orientación de Vía"      items={cats?.orientaciones_via} />
+        <CatSel field="sentido_vialidad_id"     label="Sentido de Vialidad"     items={cats?.sentidos_vialidad} />
+      </div>
+
+      {/* Sección: Ubicación en el mapa */}
+      <div className="border border-gray-200 rounded p-3 flex flex-col gap-3 bg-gray-50/50">
+        <div className="text-xs font-medium text-gray-700 border-b border-gray-100 pb-1.5">
+          Ubicación del hecho
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Latitud">
+            <input type="number" step="0.000001" className={inp} placeholder="Ej: 19.432600"
+              value={f("lat")} onChange={(e) => setField("lat", e.target.value)} />
+          </Field>
+          <Field label="Longitud">
+            <input type="number" step="0.000001" className={inp} placeholder="Ej: -99.133200"
+              value={f("lng")} onChange={(e) => setField("lng", e.target.value)} />
+          </Field>
+        </div>
         <MapaPicker lat={f("lat")} lng={f("lng")} onLocationChange={handleMapLocation} />
       </div>
     </div>
@@ -499,7 +526,7 @@ function FotoCard({ foto, tipoNombre, onDelete }) {
     <>
       {lightbox && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
           onClick={() => setLightbox(false)}
         >
           <img
@@ -590,10 +617,10 @@ function StepEvidencia() {
   const [tipoSeleccionado, setTipoSeleccionado] = useState("");
   const [uploading, setUploading]               = useState(false);
   const [uploadError, setUploadError]           = useState("");
+  const [dragOver, setDragOver]                 = useState(false);
   const fileInputRef                            = useRef(null);
   const tiposFoto = cats?.tipos_foto ?? [];
 
-  // Agrupar fotos por tipo, en el orden del catálogo
   const fotosPorTipo = {};
   for (const foto of fotos) {
     const k = String(foto.tipo_foto_id);
@@ -602,8 +629,7 @@ function StepEvidencia() {
   }
   const tiposConFotos = tiposFoto.filter((t) => fotosPorTipo[String(t.id)]?.length > 0);
 
-  const handleUpload = async (e) => {
-    const files = Array.from(e.target.files);
+  const subirArchivos = async (files) => {
     if (!files.length) return;
     if (!incidenteUuid) { setUploadError("Guarda primero el Paso 1 (Incidente)."); return; }
     if (!tipoSeleccionado) { setUploadError("Selecciona el tipo de foto antes de subir."); return; }
@@ -634,6 +660,16 @@ function StepEvidencia() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleUpload  = (e) => subirArchivos(Array.from(e.target.files));
+  const handleDrop    = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+    subirArchivos(files);
+  };
+  const handleDragOver  = (e) => { e.preventDefault(); setDragOver(true); };
+  const handleDragLeave = () => setDragOver(false);
+
   const handleDelete = async (foto) => {
     if (!incidenteUuid) return;
     try {
@@ -647,28 +683,45 @@ function StepEvidencia() {
   return (
     <div className="flex flex-col gap-4">
       {/* Barra de carga */}
-      <div className="flex gap-3 items-end bg-gray-50 border border-gray-200 rounded p-3">
-        <div className="flex-1">
-          <label className="block text-xs text-gray-600 mb-1">
-            Tipo de Foto <span className="text-red-500">*</span>
+      <div className="flex flex-col gap-2 bg-gray-50 border border-gray-200 rounded p-3">
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="block text-xs text-gray-600 mb-1">
+              Tipo de Foto <span className="text-red-500">*</span>
+            </label>
+            <select className={sel} value={tipoSeleccionado}
+              onChange={(e) => { setTipoSeleccionado(e.target.value); setUploadError(""); }}>
+              <option value="">Seleccionar tipo...</option>
+              {tiposFoto.map((t) => (
+                <option key={t.id} value={t.id}>{t.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <label className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded text-xs text-white transition-opacity
+            ${(!tipoSeleccionado || uploading) ? "opacity-40 pointer-events-none" : ""}`}
+            style={{ backgroundColor: "#00ADCF" }}>
+            <Upload size={13} />
+            {uploading ? "Subiendo…" : "Seleccionar fotos"}
+            <input ref={fileInputRef} type="file" className="hidden" multiple
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={handleUpload} disabled={!tipoSeleccionado || uploading} />
           </label>
-          <select className={sel} value={tipoSeleccionado}
-            onChange={(e) => { setTipoSeleccionado(e.target.value); setUploadError(""); }}>
-            <option value="">Seleccionar tipo...</option>
-            {tiposFoto.map((t) => (
-              <option key={t.id} value={t.id}>{t.nombre}</option>
-            ))}
-          </select>
         </div>
-        <label className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded text-xs text-white transition-opacity
-          ${(!tipoSeleccionado || uploading) ? "opacity-40 pointer-events-none" : ""}`}
-          style={{ backgroundColor: "#00ADCF" }}>
-          <Upload size={13} />
-          {uploading ? "Subiendo…" : "Seleccionar fotos"}
-          <input ref={fileInputRef} type="file" className="hidden" multiple
-            accept="image/jpeg,image/jpg,image/png,image/webp"
-            onChange={handleUpload} disabled={!tipoSeleccionado || uploading} />
-        </label>
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`border-2 border-dashed rounded flex items-center justify-center gap-2 py-3 text-xs transition-colors cursor-pointer
+            ${dragOver
+              ? "border-[#00ADCF] bg-[#E0F7FA] text-[#00ADCF]"
+              : "border-gray-300 text-gray-400 hover:border-[#00ADCF] hover:text-[#00ADCF]"
+            }
+            ${(!tipoSeleccionado || uploading) ? "opacity-40 pointer-events-none" : ""}`}
+          onClick={() => tipoSeleccionado && !uploading && fileInputRef.current?.click()}
+        >
+          <Upload size={14} />
+          {uploading ? "Subiendo…" : "Arrastra imágenes aquí o haz clic para seleccionar"}
+        </div>
       </div>
 
       {uploadError && (
@@ -760,8 +813,8 @@ function StepDeformacion() {
 
       <div className="col-span-1 flex flex-col gap-3">
         <div className="text-xs text-gray-600 border-b border-gray-200 pb-1">Variables adicionales</div>
-        <Field label="Ancho de contacto L (m)" req>
-          <input type="number" min="0" max="999.999" step="0.001" className={inp} placeholder="0.0"
+        <Field label="Ancho de contacto L (mm)" req>
+          <input type="number" min="0" max="99999" step="0.1" className={inp} placeholder="0.0"
             value={form.l_ancho_contacto_m ?? ""}
             onChange={(e) => setField("l_ancho_contacto_m", e.target.value)} />
         </Field>
@@ -1061,6 +1114,13 @@ function StepReporte() {
             placeholder="Las deformaciones son compatibles con..." />
         </div>
         <div className="border border-gray-200 rounded p-3">
+          <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-100 pb-1">Dinámica de Colisión</div>
+          <textarea className={`${inp} h-20 resize-none`}
+            value={form.dinamica_colision_fases ?? ""}
+            onChange={(e) => setField("dinamica_colision_fases", e.target.value)}
+            placeholder="Describe las fases del accidente: percepción, reacción, colisión y post-colisión..." />
+        </div>
+        <div className="border border-gray-200 rounded p-3">
           <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-100 pb-1">Conclusiones Periciales</div>
           <textarea className={`${inp} h-24 resize-none`}
             value={form.conclusiones_texto ?? ""}
@@ -1242,7 +1302,7 @@ export default function NuevoCaso() {
           medicion_C4:          def.c4_m != null ? def.c4_m * 1000 : "",
           medicion_C5:          def.c5_m != null ? def.c5_m * 1000 : "",
           medicion_C6:          def.c6_m != null ? def.c6_m * 1000 : "",
-          l_ancho_contacto_m:   def.l_ancho_contacto_m ?? "",
+          l_ancho_contacto_m:   def.l_ancho_contacto_m != null ? def.l_ancho_contacto_m * 1000 : "",
           angulo_fpi_grados:    def.angulo_fpi_grados ?? "",
           linea_referencia_mm:  def.linea_referencia_mm ?? "",
           // Paso 6: Cálculo
@@ -1270,6 +1330,7 @@ export default function NuevoCaso() {
           // Paso 8: Reporte
           principio_intercambio_materiales: pri.principio_intercambio_materiales ?? "",
           principio_correspondencia:        pri.principio_correspondencia ?? "",
+          dinamica_colision_fases:          pri.dinamica_colision_fases ?? "",
           conclusiones_texto: (pri.conclusiones ?? []).map((c) => c.texto_conclusion).join("\n"),
           tipo_documento: inc.reportes?.[0]?.tipo_documento ?? "informe",
         }));
@@ -1280,7 +1341,7 @@ export default function NuevoCaso() {
             id:          f.id,
             tipo_foto_id:f.tipo_foto_id,
             url:         f.url,
-            previewUrl:  `${API_URL}/api/v1/rat/fotos/${f.id}`,
+            previewUrl:  `${API_URL}/v1/rat/fotos/${f.id}`,
           })));
         }
       })
@@ -1416,7 +1477,7 @@ export default function NuevoCaso() {
           c4_m                 : form.medicion_C4 ? Number(form.medicion_C4) / 1000 : null,
           c5_m                 : form.medicion_C5 ? Number(form.medicion_C5) / 1000 : null,
           c6_m                 : form.medicion_C6 ? Number(form.medicion_C6) / 1000 : null,
-          l_ancho_contacto_m   : form.l_ancho_contacto_m   ? Number(form.l_ancho_contacto_m) : null,
+          l_ancho_contacto_m   : form.l_ancho_contacto_m   ? Number(form.l_ancho_contacto_m) / 1000 : null,
           angulo_fpi_grados    : form.angulo_fpi_grados    ? Number(form.angulo_fpi_grados) : null,
           linea_referencia_mm  : form.linea_referencia_mm  ? Number(form.linea_referencia_mm) : null,
         });
@@ -1458,6 +1519,7 @@ export default function NuevoCaso() {
         await updatePaso9Reporte(incidenteUuid, {
           principio_intercambio_materiales : form.principio_intercambio_materiales || null,
           principio_correspondencia        : form.principio_correspondencia || null,
+          dinamica_colision_fases          : form.dinamica_colision_fases || null,
           conclusiones_texto               : form.conclusiones_texto || null,
           tipo_documento                   : form.tipo_documento || "informe",
           accion                           : form.accion || "guardar",
@@ -1623,7 +1685,7 @@ export default function NuevoCaso() {
 
       {/* Modal: navegar sin guardar */}
       {pendingStep !== null && pendingStep !== step && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
           <div className="bg-white rounded shadow-lg w-full max-w-sm p-6">
             <div className="flex items-center gap-2 mb-3">
               <AlertCircle size={18} className="text-yellow-500" />

@@ -41,8 +41,28 @@ class ExpedienteWizardController extends Controller
         return $request->all();
     }
 
+    private function isAdmin(Request $request): bool
+    {
+        $user = $request->attributes->get('user');
+        return ($user->email ?? '') === 'admin@cesvi.com';
+    }
+
+    private function checkOwnership(Request $request, Incidente $incidente): void
+    {
+        if ($this->isAdmin($request)) return;
+
+        $user = $request->attributes->get('user');
+        if ($incidente->id_usuario_perito != ($user->id_user ?? null)) {
+            abort(403, 'No tienes permiso para editar este expediente.');
+        }
+    }
+
     public function storePaso1(Request $request): JsonResponse
     {
+        // Forzar id_usuario_perito desde el JWT (evita suplantación)
+        $jwtUser = $request->attributes->get('user');
+        $request->merge(['id_usuario_perito' => $jwtUser->id_user ?? null]);
+
         $data = $this->lumenValidate($request, [
             'numero_siniestro'         => 'required|string|max:100|unique:RAT_INCIDENTE,numero_siniestro',
             'fecha_hecho'              => 'required|date|before_or_equal:today',
@@ -56,9 +76,7 @@ class ExpedienteWizardController extends Controller
         ]);
         $incidente = Incidente::create($data);
 
-        // Crear stub vehiculo + IV inmediatamente para que las fotos
-        // puedan subirse antes de que el usuario complete el Paso 2.
-        $stubVin     = 'TMP_' . substr(str_replace('-', '', $incidente->uuid), 0, 13);
+        $stubVin      = 'TMP_' . substr(str_replace('-', '', $incidente->uuid), 0, 13);
         $stubVehiculo = Vehiculo::create([
             'vin'           => $stubVin,
             'marca'         => 'Por definir',
@@ -81,15 +99,18 @@ class ExpedienteWizardController extends Controller
     public function updatePaso1(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'numero_siniestro'         => 'sometimes|string|max:100|unique:RAT_INCIDENTE,numero_siniestro,'.$incidente->id,
             'fecha_hecho'              => 'sometimes|date|before_or_equal:today',
             'hora_hecho'               => 'nullable|date_format:H:i,H:i:s',
             'tipo_hecho_id'            => 'sometimes|exists:RAT_CAT_TIPO_HECHO,id',
             'tipo_hecho_descripcion'   => 'nullable|string|max:300',
-            'id_usuario_perito'        => 'sometimes|exists:sys_users,id_user',
             'estado'                   => 'sometimes|integer|in:0,1,2',
         ]);
+        // Nunca permitir cambiar el propietario desde el wizard
+        unset($data['id_usuario_perito']);
         $incidente->update($data);
         return response()->json(['message' => 'Paso 1 actualizado.', 'data' => $incidente]);
     }
@@ -97,6 +118,8 @@ class ExpedienteWizardController extends Controller
     public function updatePaso2(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'vin'                       => 'required|string|max:17',
             'marca'                     => 'required|string|max:100',
@@ -141,19 +164,15 @@ class ExpedienteWizardController extends Controller
             'rol'                 => $data['rol'],
         ];
 
-        // Buscar el IV existente para este incidente (puede ser el stub del paso 1)
-        $iv            = IncidenteVehiculo::where('incidente_id', $incidente->id)->orderBy('id')->first();
-        // Buscar si ya existe otro vehiculo con este VIN
+        $iv             = IncidenteVehiculo::where('incidente_id', $incidente->id)->orderBy('id')->first();
         $vehiculoPorVin = Vehiculo::where('vin', $data['vin'])->first();
 
         if ($iv) {
             if ($vehiculoPorVin && $vehiculoPorVin->id !== $iv->vehiculo_id) {
-                // El VIN ya pertenece a otro vehiculo: actualizarlo y re-enlazar
                 $vehiculoPorVin->update($vehiculoData);
                 $iv->update(array_merge($ivData, ['vehiculo_id' => $vehiculoPorVin->id]));
                 $vehiculo = $vehiculoPorVin;
             } else {
-                // Actualizar el vehiculo actual (incluyendo el VIN, sobreescribe stub)
                 $vehiculo = Vehiculo::find($iv->vehiculo_id);
                 if ($vehiculo) {
                     $vehiculo->fill(array_merge(['vin' => $data['vin']], $vehiculoData))->save();
@@ -164,7 +183,6 @@ class ExpedienteWizardController extends Controller
                 $iv->update($ivData);
             }
         } else {
-            // No existe IV: crear vehiculo + IV
             $vehiculo = $vehiculoPorVin
                 ? tap($vehiculoPorVin, fn($v) => $v->update($vehiculoData))
                 : Vehiculo::create(array_merge(['vin' => $data['vin']], $vehiculoData));
@@ -180,6 +198,8 @@ class ExpedienteWizardController extends Controller
     public function updatePaso3(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'numero_ocupantes'  => 'nullable|integer|min:0',
             'peso_conductor_kg' => 'nullable|numeric|min:0',
@@ -198,6 +218,8 @@ class ExpedienteWizardController extends Controller
     public function updatePaso4(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'calle'                          => 'nullable|string|max:200',
             'municipio'                      => 'nullable|string|max:100',
@@ -223,9 +245,10 @@ class ExpedienteWizardController extends Controller
     public function storePaso5(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $iv = $this->getIncidenteVehiculo($incidente);
 
-        // Fallback para incidentes creados antes de la versión con stub automático
         if (!$iv) {
             $stubVin      = 'TMP_' . substr(str_replace('-', '', $uuid), 0, 13);
             $stubVehiculo = Vehiculo::where('vin', $stubVin)->first()
@@ -257,9 +280,11 @@ class ExpedienteWizardController extends Controller
         return response()->json(['message' => 'Foto guardada.', 'foto_id' => $foto->id, 'url' => $path], 201);
     }
 
-    public function destroyFoto(string $uuid, int $fotoId): JsonResponse
+    public function destroyFoto(Request $request, string $uuid, int $fotoId): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $ivIds = IncidenteVehiculo::where('incidente_id', $incidente->id)->pluck('id');
         $foto  = Foto::where('id', $fotoId)->whereIn('incidente_vehiculo_id', $ivIds)->firstOrFail();
         $filePath = storage_path("app/public/{$foto->url}");
@@ -290,6 +315,8 @@ class ExpedienteWizardController extends Controller
     public function updatePaso6(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'tipo_golpe_id'        => 'required|exists:RAT_CAT_TIPO_GOLPE,id',
             'numero_mediciones_id' => 'required|exists:RAT_CAT_NUMERO_MEDICIONES,id',
@@ -305,7 +332,6 @@ class ExpedienteWizardController extends Controller
         ]);
         $iv = $this->getIncidenteVehiculo($incidente);
         if (!$iv) return response()->json(['message' => 'Completa el Paso 2 (Vehículo) antes de guardar la deformación.'], 422);
-        // c3_m es NOT NULL en el esquema; cuando se usan solo 2 mediciones se guarda 0
         $data['c3_m'] = $data['c3_m'] ?? 0;
         DeformacionMedicion::updateOrCreate(
             ['incidente_vehiculo_id' => $iv->id],
@@ -319,6 +345,8 @@ class ExpedienteWizardController extends Controller
     public function storePaso7(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'a_rigidez_n_m'              => 'nullable|numeric|min:0',
             'b_rigidez_n_m2'             => 'nullable|numeric|min:0',
@@ -351,6 +379,8 @@ class ExpedienteWizardController extends Controller
     public function updatePaso8(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'narracion_hechos'            => 'nullable|string',
             'objeto_involucrado'          => 'nullable|string|max:200',
@@ -372,9 +402,12 @@ class ExpedienteWizardController extends Controller
     public function updatePaso9(Request $request, string $uuid): JsonResponse
     {
         $incidente = Incidente::where('uuid', $uuid)->firstOrFail();
+        $this->checkOwnership($request, $incidente);
+
         $data = $this->lumenValidate($request, [
             'principio_intercambio_materiales' => 'nullable|string',
             'principio_correspondencia'        => 'nullable|string',
+            'dinamica_colision_fases'          => 'nullable|string',
             'conclusiones_texto'               => 'nullable|string',
             'tipo_documento'                   => 'required|in:informe,dictamen',
             'accion'                           => 'nullable|in:guardar,validar,emitir',
@@ -389,9 +422,9 @@ class ExpedienteWizardController extends Controller
                     [
                         'principio_intercambio_materiales' => $data['principio_intercambio_materiales'] ?? null,
                         'principio_correspondencia'        => $data['principio_correspondencia'] ?? null,
+                        'dinamica_colision_fases'          => $data['dinamica_colision_fases'] ?? null,
                     ]
                 );
-                // Guardar conclusiones: reemplazar todas con las líneas del textarea
                 if (!empty($data['conclusiones_texto'])) {
                     Conclusion::where('principios_forenses_id', $principios->id)->delete();
                     $lineas = array_values(array_filter(
