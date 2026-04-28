@@ -187,7 +187,7 @@ export default function AdminUsuarios() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                {["#", "Nombre", "Correo electrónico", "No. Empleado", "Especialidad", "Expedientes", "Acciones"].map((h) => (
+                {["#", "Nombre", "Correo electrónico", "No. Empleado", "Expedientes", "Acciones"].map((h) => (
                   <th key={h} className="text-left text-xs text-gray-500 px-3 py-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -196,7 +196,7 @@ export default function AdminUsuarios() {
               {loading
                 ? Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="border-b border-gray-100">
-                      {Array.from({ length: 7 }).map((__, j) => (
+                      {Array.from({ length: 6 }).map((__, j) => (
                         <td key={j} className="px-3 py-2">
                           <div className="animate-pulse bg-gray-200 rounded h-3 w-full" />
                         </td>
@@ -209,7 +209,6 @@ export default function AdminUsuarios() {
                       <td className="px-3 py-2 text-xs font-medium text-gray-800">{u.name ?? "—"}</td>
                       <td className="px-3 py-2 text-xs text-gray-600">{u.email}</td>
                       <td className="px-3 py-2 text-xs text-gray-600">{u.numero_empleado ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-gray-600">{u.especialidad ?? "—"}</td>
                       <td className="px-3 py-2 text-xs text-gray-700 text-center">{u.total_expedientes ?? 0}</td>
                       <td className="px-3 py-2">
                         {u.email !== "admin@cesvi.com" && (

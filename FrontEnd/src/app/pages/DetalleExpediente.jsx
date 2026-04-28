@@ -55,8 +55,9 @@ function TabResumen({ inc }) {
       </div>
       <div>
         <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">Datos del Vehículo</div>
-        <Row label="Marca / Modelo" val={iv ? `${iv.vehiculo?.marca} ${iv.vehiculo?.submarca}` : null} />
-        <Row label="Año"            val={iv?.vehiculo?.anio_modelo} />
+        <Row label="Marca"  val={iv?.vehiculo?.marca} />
+        <Row label="Modelo" val={iv?.vehiculo?.submarca ?? iv?.vehiculo?.nombre_modelo} />
+        <Row label="Año"    val={iv?.vehiculo?.anio_modelo} />
         <Row label="VIN"            val={iv?.vehiculo?.vin} />
         <Row label="Placas"         val={iv?.numero_placas} />
         <Row label="Color"          val={iv?.color?.nombre} />
@@ -64,9 +65,20 @@ function TabResumen({ inc }) {
       </div>
       <div>
         <div className="text-xs text-gray-600 font-medium mb-2 border-b border-gray-200 pb-1">Resultados de Velocidad</div>
-        <Row label="Vel. pre-impacto" val={cal?.velocidad_impacto_kmh ? `${cal.velocidad_impacto_kmh} km/h` : null} />
-        <Row label="Vel. final"       val={cal?.velocidad_final_kmh   ? `${cal.velocidad_final_kmh} km/h`   : null} />
-        <Row label="Δv exceso"        val={cal?.delta_exceso_kmh       ? `+${cal.delta_exceso_kmh} km/h`    : null} highlight />
+        <Row label="Vel. pre-impacto" val={cal?.velocidad_pre_impacto_kmh ? `${cal.velocidad_pre_impacto_kmh} km/h` : null} />
+        <Row label="Vel. final"       val={cal?.velocidad_final_kmh       ? `${cal.velocidad_final_kmh} km/h`       : null} />
+        {(() => {
+          const vp   = parseFloat(cal?.velocidad_pre_impacto_kmh);
+          const vlim = parseFloat(ub?.velocidad_maxima_permitida_kmh);
+          const exc  = (!isNaN(vp) && !isNaN(vlim)) ? +(vp - vlim).toFixed(2) : null;
+          return (
+            <Row
+              label="Δv exceso"
+              val={exc !== null ? (exc > 0 ? `+${exc} km/h` : "Sin exceso") : null}
+              highlight={exc !== null && exc > 0}
+            />
+          );
+        })()}
         <Row label="Límite permitido" val={ub?.velocidad_maxima_permitida_kmh ? `${ub.velocidad_maxima_permitida_kmh} km/h` : null} />
         <Row label="μ adherencia"     val={ub?.mu_coeficiente_adherencia} />
         {cal?.exceso_velocidad === 1 && (
@@ -84,8 +96,10 @@ function TabVehiculo({ inc }) {
   const iv = inc.vehiculos?.[0];
   const v  = iv?.vehiculo ?? {};
   const fields = [
-    ["Marca",       v.marca],       ["Submarca",  v.submarca],
-    ["Año",         v.anio_modelo], ["Modelo",    v.nombre_modelo],
+    ["Marca",    v.marca],
+    ["Modelo",   v.submarca],
+    ["Año",      v.anio_modelo],
+    ...(v.nombre_modelo ? [["Versión", v.nombre_modelo]] : []),
     ["VIN",         v.vin],         ["Placas",    iv?.numero_placas],
     ["Color",       iv?.color?.nombre],
     ["Peso Tara",   v.peso_tara_kg              ? `${v.peso_tara_kg} kg`              : null],
@@ -204,7 +218,9 @@ function TabDeformacion({ inc }) {
         { label: "C4", raw: def.c4_m },
         { label: "C5", raw: def.c5_m },
         { label: "C6", raw: def.c6_m },
-      ].filter((m) => m.raw != null && !isNaN(m.raw) && m.raw > 0)
+      ]
+      .filter((m) => m.raw != null && !isNaN(m.raw) && m.raw > 0)
+      .map((m) => ({ label: m.label, raw: Number(m.raw) }))
     : [];
 
   const mediciones = rawCVals.map((m) => ({ label: m.label, val: `${(m.raw * 1000).toFixed(1)} mm` }));
@@ -279,17 +295,53 @@ function TabDeformacion({ inc }) {
 function TabCalculos({ inc }) {
   const iv  = inc.vehiculos?.[0];
   const cal = iv?.calculo_velocidad;
+  const def = iv?.deformacion_medicion;
+  const ub  = inc.ubicacion_via;
 
   if (!cal) return <div className="text-xs text-gray-400 py-4">Sin cálculos registrados.</div>;
 
+  // helper: parseFloat seguro que retorna null si no es número válido
+  const pf = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+  const fmt = (v, unit) => v != null ? `${v} ${unit}` : null;
+
+  // Dmed: guardado en DB o calculado on-the-fly desde mediciones C
+  const dmedVal = (() => {
+    const stored = pf(cal.dmed_m);
+    if (stored != null && stored > 0) return stored;
+    if (!def) return null;
+    const vals = ["c1_m","c2_m","c3_m","c4_m","c5_m","c6_m"]
+      .map((k) => Number(def[k]))
+      .filter((v) => !isNaN(v) && v > 0);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  })();
+  const dmedDisplay = dmedVal != null
+    ? `${dmedVal.toFixed(4)} m  (${(dmedVal * 1000).toFixed(1)} mm)`
+    : null;
+
+  // Limpert: guardado, calculado on-the-fly, o "No aplica" si Dmed > 60 cm
+  const limpertDisplay = (() => {
+    const stored = pf(cal.velocidad_limpert_kmh);
+    if (stored != null && stored > 0) return `${stored} km/h`;
+    if (dmedVal == null) return null;
+    if (dmedVal > 0.6) return "No aplica (Dmed > 60 cm)";
+    return `${(4.4 * (dmedVal * 100) + 0.32).toFixed(2)} km/h`;
+  })();
+
+  // Δv: calculado on-the-fly desde Vp y límite permitido
+  const vpNum    = pf(cal.velocidad_pre_impacto_kmh);
+  const vlimNum  = pf(ub?.velocidad_maxima_permitida_kmh);
+  const exceso   = (vpNum != null && vlimNum != null) ? +(vpNum - vlimNum).toFixed(2) : null;
+  const excesoDisplay = exceso !== null
+    ? (exceso > 0 ? `+${exceso} km/h` : "Sin exceso")
+    : null;
+
   const resultados = [
-    ["EBS",                   cal.ebs_m_s               ? `${cal.ebs_m_s} m/s`               : "—"],
-    ["Velocidad de impacto",  cal.velocidad_impacto_kmh  ? `${cal.velocidad_impacto_kmh} km/h` : "—"],
-    ["Velocidad pre-impacto", cal.velocidad_pre_impacto_kmh ? `${cal.velocidad_pre_impacto_kmh} km/h` : "—"],
-    ["Velocidad Limpert",     cal.velocidad_limpert_kmh  ? `${cal.velocidad_limpert_kmh} km/h` : "—"],
-    ["Velocidad final",       cal.velocidad_final_kmh    ? `${cal.velocidad_final_kmh} km/h`   : "—"],
-    ["Δv (delta)",            cal.delta_exceso_kmh       ? `${cal.delta_exceso_kmh} km/h`      : "—"],
-    ["Exceso de velocidad",   cal.exceso_velocidad === 1 ? `+${cal.delta_exceso_kmh ?? "?"} km/h` : "No"],
+    ["EBS",                   fmt(pf(cal.ebs_m_s),                      "m/s")  ],
+    ["ΔV (cambio velocidad)", fmt(pf(cal.velocidad_impacto_kmh),         "km/h") ],
+    ["Velocidad pre-impacto", fmt(pf(cal.velocidad_pre_impacto_kmh),     "km/h") ],
+    ["Velocidad Limpert",     limpertDisplay                                      ],
+    ["Velocidad final",       fmt(pf(cal.velocidad_final_kmh),           "km/h") ],
+    ["Δv exceso",             excesoDisplay                                       ],
   ];
 
   return (
@@ -297,12 +349,12 @@ function TabCalculos({ inc }) {
       <div>
         <div className="text-xs font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">Parámetros</div>
         {[
-          ["Rigidez A (N/m)",          cal.a_rigidez_n_m],
-          ["Rigidez B (N/m²)",         cal.b_rigidez_n_m2],
-          ["Dmed (m)",                 cal.dmed_m],
-          ["Ed deformación (J)",       cal.e_deformacion_julios],
-          ["Ed corregida (J)",         cal.e_def_corregida_julios],
-          ["T. respuesta frenos (s)",  cal.tiempo_respuesta_frenos_s ? `${cal.tiempo_respuesta_frenos_s} s` : null],
+          ["Rigidez A (N/m)",         fmt(pf(cal.a_rigidez_n_m),              "N/m")  ],
+          ["Rigidez B (N/m²)",        fmt(pf(cal.b_rigidez_n_m2),             "N/m²") ],
+          ["Dmed",                    dmedDisplay                                      ],
+          ["Ed deformación (J)",      fmt(pf(cal.e_deformacion_julios),        "J")    ],
+          ["Ed corregida (J)",        fmt(pf(cal.e_def_corregida_julios),      "J")    ],
+          ["T. respuesta frenos",     fmt(pf(cal.tiempo_respuesta_frenos_s),   "s")    ],
         ].map(([l, v]) => <Row key={l} label={l} val={v} />)}
       </div>
       <div>

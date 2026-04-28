@@ -21,9 +21,12 @@ class LoginController extends Controller
 
         $user = DB::table('sys_users')->where('email', $email)->first();
 
-        //if (!$user || !Hash::check($password, $user->password)) {
-        if (!$user || ! ($password == $user->password)) {
-            return response()->json(['message' => 'Credenciales inválidas.'], 401);
+        if (!$user) {
+            return response()->json(['message' => 'No se encontró usuario con el correo proporcionado.'], 401);
+        }
+
+        if ($password !== $user->password) {
+            return response()->json(['message' => 'Contraseña incorrecta.'], 401);
         }
 
         $secret = env('JWT_SECRET', '2d9578b39689e6736f52e42af9a6f4913db5849323dc999d6316c4a9dc305627%');

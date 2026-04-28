@@ -247,7 +247,6 @@ function StepVehiculo() {
       <Field label="Año del modelo" req>
         <input type="number" min="1886" max="2030" className={inp} placeholder="Ej: 2022"
           value={f("anio_modelo")} onChange={(e) => setField("anio_modelo", e.target.value)} />
-        <span className="text-[10px] text-gray-400 mt-0.5 block">Rango permitido: 1886 – 2030</span>
       </Field>
       <Field label="Tipo de Vehículo" req>
         <select className={sel} value={f("tipo_vehiculo")}
@@ -839,41 +838,51 @@ function StepCalculo() {
   const [calcError, setCalcError] = React.useState("");
 
   const params = [
-    { label: "Coeficiente A (N/m)",                key: "a_rigidez_n_m",             hint: "Rigidez longitudinal del vehículo",                          min: 0 },
-    { label: "Coeficiente B (N/m²)",               key: "b_rigidez_n_m2",            hint: "Rigidez no lineal del vehículo",                             min: 0 },
-    { label: "Dmed — promedio de deformación (m)",  key: "dmed_m",                    hint: "Media de las mediciones Ci (auto-completado desde paso anterior)", min: 0, max: 99.9999, step: 0.0001 },
-    { label: "Tiempo de respuesta frenos (s)",      key: "tiempo_respuesta_frenos_s", hint: "Tiempo entre reacción y bloqueo de frenos",                  min: 0, max: 99.99, step: 0.01 },
-    { label: "Velocidad final post-impacto (km/h)", key: "velocidad_final_kmh",       hint: "Velocidad del vehículo al detenerse tras el impacto",        min: 0, max: 300,   step: 0.01 },
+    { label: "Coeficiente A (N/m)",                key: "a_rigidez_n_m",             hint: "Rigidez longitudinal del vehículo",                             min: 0 },
+    { label: "Coeficiente B (N/m²)",               key: "b_rigidez_n_m2",            hint: "Rigidez no lineal del vehículo",                                min: 0 },
+    { label: "Dmed — promedio deformación (m)",     key: "dmed_m",                    hint: "Auto-calculado de C1…Cn al presionar Calcular",                 min: 0, max: 99.9999, step: 0.0001, readOnly: true },
+    { label: "Tiempo de respuesta frenos (s)",      key: "tiempo_respuesta_frenos_s", hint: "Tiempo entre reacción y bloqueo de frenos",                     min: 0, max: 99.99, step: 0.01 },
+    { label: "Velocidad final post-impacto (km/h)", key: "velocidad_final_kmh",       hint: "Velocidad del vehículo al detenerse tras el impacto (0 si para)", min: 0, max: 300,   step: 0.01 },
   ];
   const resultados = [
-    { label: "Energía de deformación Ed (J)",                     key: "e_deformacion_julios",      formula: "Ed = A·L·Dmed + B·L·Dmed²/2" },
-    { label: "Energía corregida por ángulo (J)",                  key: "e_def_corregida_julios",    formula: "E_corr = Ed × (1 + tan α)²" },
-    { label: "EBS — Velocidad equivalente de barrera (m/s)",      key: "ebs_m_s",                   formula: "EBS = √(2 × E_corr / m)" },
-    { label: "Velocidad de impacto Vi (km/h)",                    key: "velocidad_impacto_kmh",     formula: "Vi = EBS × 3.6  ← velocidad al momento del choque" },
-    { label: "Velocidad pre-impacto Vp (km/h)",                   key: "velocidad_pre_impacto_kmh", formula: "Vp = √(Vi² + Vf²)  ← velocidad antes de frenar" },
-    { label: "Verificación Limpert (km/h)",                       key: "velocidad_limpert_kmh",     formula: "VL = 4.4 × Dmed(cm) + 0.32" },
-    { label: "Exceso sobre velocidad máxima (km/h)",              key: "delta_exceso_kmh",          formula: "Δv = Vf − V_máx_permitida" },
+    { label: "Energía de deformación Ed (J)",                key: "e_deformacion_julios",      formula: "McHenry CRASH3: E = h·(A/2·ΣwᵢCᵢ + B/6·ΣwᵢCᵢCⱼ) + A²L/(2B)" },
+    { label: "Energía corregida por ángulo (J)",             key: "e_def_corregida_julios",    formula: "E_corr = Ed × (1 + tan α)²" },
+    { label: "EBS — Equiv. Barrier Speed (m/s)",             key: "ebs_m_s",                   formula: "EBS = √(2 × E_corr / m)  ← ΔV absorbido por deformación" },
+    { label: "ΔV (cambio de velocidad en choque, km/h)",     key: "velocidad_impacto_kmh",     formula: "ΔV = EBS × 3.6" },
+    { label: "Velocidad pre-impacto Vp (km/h)",              key: "velocidad_pre_impacto_kmh", formula: "Vp = √(ΔV² + Vf²)  ← velocidad antes del choque" },
+    { label: "Verificación Limpert (km/h)",                  key: "velocidad_limpert_kmh",     formula: "VL = 4.4 × Dmed(cm) + 0.32  [solo válido si Dmed ≤ 60 cm]" },
+    { label: "Exceso sobre velocidad máxima (km/h)",         key: "delta_exceso_kmh",          formula: "Δexc = Vp − V_máx_permitida" },
   ];
 
   const handleCalcular = () => {
-    const A     = parseFloat(form.a_rigidez_n_m)   || 0;
-    const B     = parseFloat(form.b_rigidez_n_m2)  || 0;
-    const L     = parseFloat(form.l_ancho_contacto_m) || 0;
-    const Dmed  = parseFloat(form.dmed_m)           || 0;
-    const alpha = parseFloat(form.angulo_fpi_grados) || 0;
+    const A     = parseFloat(form.a_rigidez_n_m)     || 0;
+    const B     = parseFloat(form.b_rigidez_n_m2)    || 0;
+    // l_ancho_contacto_m is stored in mm in the form → convert to meters
+    const L     = (parseFloat(form.l_ancho_contacto_m) || 0) / 1000;
+    const alpha = parseFloat(form.angulo_fpi_grados)  || 0;
     const Vf    = parseFloat(form.velocidad_final_kmh) || 0;
     const Vmax  = parseFloat(form.velocidad_maxima_permitida_kmh) || 0;
-    const m     = (parseFloat(form.peso_tara_kg)     || 0)
-                + (parseFloat(form.peso_conductor_kg) || 0)
-                + (parseFloat(form.peso_pasajeros_kg) || 0)
-                + (parseFloat(form.peso_equipaje_kg)  || 0);
+    const m     = (parseFloat(form.peso_tara_kg)      || 0)
+                + (parseFloat(form.peso_conductor_kg)  || 0)
+                + (parseFloat(form.peso_pasajeros_kg)  || 0)
+                + (parseFloat(form.peso_equipaje_kg)   || 0);
 
-    if (!A || !B || !Dmed) {
-      setCalcError("Se necesitan los coeficientes A, B y el Dmed para calcular.");
+    // Leer mediciones C1..Cn (mm en el form → convertir a m)
+    const nMed = Math.max(2, Math.min(parseInt(form.numero_mediciones || "6", 10), 20));
+    const C    = Array.from({ length: nMed }, (_, i) =>
+      (parseFloat(form[`medicion_C${i + 1}`]) || 0) / 1000
+    );
+
+    if (!A || !B) {
+      setCalcError("Se necesitan los coeficientes A y B para calcular.");
       return;
     }
     if (!L) {
-      setCalcError("Ingresa el Ancho de contacto L en el paso de Deformación para calcular.");
+      setCalcError("Ingresa el Ancho de contacto L (mm) en el paso de Deformación.");
+      return;
+    }
+    if (C.every((v) => v === 0)) {
+      setCalcError("Ingresa las mediciones de deformación C1–Cn en el paso anterior.");
       return;
     }
     if (!m) {
@@ -885,25 +894,44 @@ function StepCalculo() {
     const r2 = (v) => Math.round(v * 100) / 100;
     const r4 = (v) => Math.round(v * 10000) / 10000;
 
-    const Ed    = A * L * Dmed + B * L * (Dmed ** 2) / 2;
+    // Dmed automático a partir de C measurements
+    const Dmed = C.reduce((a, b) => a + b, 0) / C.length;
+
+    // ── McHenry CRASH3 (integración trapezoidal con término residual) ──
+    // E = h·(A/2·ΣwᵢCᵢ  +  B/6·ΣwᵢCᵢCⱼ)  +  A²L/(2B)
+    // donde h = L/(n-1) y los pesos son: endpoints=1, interior=2 para los
+    // términos lineales/cuadráticos, más productos cruzados adyacentes.
+    const n = C.length;
+    const h = L / (n - 1);
+
+    let sumA = C[0] + C[n - 1];
+    for (let i = 1; i < n - 1; i++) sumA += 2 * C[i];
+
+    let sumB = C[0] * C[0] + C[n - 1] * C[n - 1];
+    for (let i = 1; i < n - 1; i++) sumB += 2 * C[i] * C[i];
+    for (let i = 0; i < n - 1; i++) sumB += C[i] * C[i + 1];
+
+    const Ed    = h * ((A / 2) * sumA + (B / 6) * sumB) + L * (A * A) / (2 * B);
     const tanA  = Math.tan((alpha * Math.PI) / 180);
     const Ecorr = Ed * (1 + tanA) ** 2;
-    const EBS   = Ecorr > 0 ? Math.sqrt((2 * Ecorr) / m) : 0;
-    const Vi    = EBS * 3.6;
-    const Vp    = Math.sqrt(Vi ** 2 + Vf ** 2);
-    const VL    = 4.4 * (Dmed * 100) + 0.32;
-    const delta = r2(Vf - Vmax);
+    const EBS   = Ecorr > 0 ? Math.sqrt((2 * Ecorr) / m) : 0; // m/s
+    const dV    = EBS * 3.6;                       // ΔV en km/h
+    const Vp    = Math.sqrt(dV ** 2 + Vf ** 2);   // velocidad pre-impacto
+    // Limpert válido solo hasta Dmed ≤ 0.6 m (60 cm); en impactos severos da valores irreales
+    const VL    = Dmed <= 0.6 ? r2(4.4 * (Dmed * 100) + 0.32) : null;
+    const delta = r2(Vp - Vmax);                   // exceso vs límite
 
+    setField("dmed_m",                    r4(Dmed));
     setField("e_deformacion_julios",      r2(Ed));
     setField("e_def_corregida_julios",    r2(Ecorr));
     setField("ebs_m_s",                   r4(EBS));
-    setField("velocidad_impacto_kmh",     r2(Vi));
+    setField("velocidad_impacto_kmh",     r2(dV));
     setField("velocidad_pre_impacto_kmh", r2(Vp));
-    setField("velocidad_limpert_kmh",     r2(VL));
+    setField("velocidad_limpert_kmh",     VL ?? "");
     setField("delta_exceso_kmh",          delta);
   };
 
-  const datosIncompletos = !form.a_rigidez_n_m && !form.b_rigidez_n_m2 && !form.dmed_m;
+  const datosIncompletos = !form.a_rigidez_n_m && !form.b_rigidez_n_m2;
   const hayExceso = Number(form.delta_exceso_kmh) > 0;
   const velRelevante = form.velocidad_pre_impacto_kmh || form.velocidad_impacto_kmh || form.velocidad_final_kmh;
 
@@ -916,8 +944,11 @@ function StepCalculo() {
             <div key={v.key}>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-gray-500 w-56 shrink-0">{v.label}</label>
-                <input type="number" className={inp} value={form[v.key] ?? ""}
-                  onChange={(e) => setField(v.key, e.target.value)}
+                <input type="number"
+                  className={v.readOnly ? `${inp} bg-gray-100 text-gray-500 cursor-default` : inp}
+                  value={form[v.key] ?? ""}
+                  readOnly={v.readOnly}
+                  onChange={v.readOnly ? undefined : (e) => setField(v.key, e.target.value)}
                   {...(v.min  !== undefined && { min:  v.min  })}
                   {...(v.max  !== undefined && { max:  v.max  })}
                   {...(v.step !== undefined && { step: v.step })} />
@@ -957,19 +988,27 @@ function StepCalculo() {
         ) : null}
 
         <div className="flex flex-col gap-2">
-          {resultados.map((v) => (
-            <div key={v.key} className="bg-gray-50 border border-gray-200 rounded px-3 py-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-700 font-medium">{v.label}</span>
-                <input
-                  className="text-xs font-semibold text-[#00ADCF] bg-transparent border-none outline-none w-20 text-right"
-                  value={form[v.key] ?? ""}
-                  onChange={(e) => setField(v.key, e.target.value)}
-                />
+          {resultados.map((v) => {
+            const limpertNoAplica = v.key === "velocidad_limpert_kmh"
+              && parseFloat(form.dmed_m) > 0.6
+              && form.dmed_m !== "";
+            return (
+              <div key={v.key} className={`border rounded px-3 py-1.5 ${limpertNoAplica ? "bg-orange-50 border-orange-200" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-700 font-medium">{v.label}</span>
+                  {limpertNoAplica
+                    ? <span className="text-xs font-semibold text-orange-500">No aplica</span>
+                    : <input
+                        className="text-xs font-semibold text-[#00ADCF] bg-transparent border-none outline-none w-20 text-right"
+                        value={form[v.key] ?? ""}
+                        onChange={(e) => setField(v.key, e.target.value)}
+                      />
+                  }
+                </div>
+                <div className="text-[10px] text-gray-400 font-mono mt-0.5">{v.formula}</div>
               </div>
-              <div className="text-[10px] text-gray-400 font-mono mt-0.5">{v.formula}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-4 p-3 border rounded" style={{ borderColor: "#00ADCF", backgroundColor: "#E0F7FA" }}>
@@ -1211,13 +1250,11 @@ export default function NuevoCaso() {
     if (main) main.scrollTop = 0;
   }, [step]);
 
-  // Auto-fill dmed al entrar al paso de cálculo si aún no tiene valor
+  // Auto-fill dmed al entrar al paso de cálculo (siempre actualiza desde mediciones)
   useEffect(() => {
     if (step !== 6) return;
-    if (form.dmed_m) return;
-    const cVals = [form.medicion_C1, form.medicion_C2, form.medicion_C3,
-                   form.medicion_C4, form.medicion_C5, form.medicion_C6]
-      .map((v) => parseFloat(v))
+    const nMed = Math.max(2, Math.min(parseInt(form.numero_mediciones || "6", 10), 20));
+    const cVals = Array.from({ length: nMed }, (_, i) => parseFloat(form[`medicion_C${i + 1}`]))
       .filter((v) => !isNaN(v) && v > 0);
     if (cVals.length > 0) {
       const dmed_mm = cVals.reduce((a, b) => a + b, 0) / cVals.length;

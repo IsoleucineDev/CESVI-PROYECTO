@@ -266,7 +266,7 @@ export default function Catalogos() {
                       ))}
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-2">
-                          {isCrudable ? (
+                          {isCrudable && (
                             <>
                               <button onClick={() => openEdit(row)} className="text-[#00ADCF] hover:text-[#007A9A]" title="Editar">
                                 <Edit2 size={14} />
@@ -280,10 +280,6 @@ export default function Catalogos() {
                                 <Trash2 size={14} />
                               </button>
                             </>
-                          ) : (
-                            <button onClick={() => openEdit(row)} className="text-[#00ADCF] hover:text-[#007A9A]" title="Ver detalle">
-                              <Edit2 size={14} />
-                            </button>
                           )}
                         </div>
                       </td>

@@ -211,7 +211,7 @@ const modalidad = val(datos.tipo_hecho).toUpperCase();
 const textoCubierta =
   `${tipoDoc}, HECHO DE TRÁNSITO, EN SU MODALIDAD ${modalidad} ` +
   `EN EL QUE SE VIO INVOLUCRADO EL VEHÍCULO MARCA ${val(datos.marca).toUpperCase()}, ` +
-  `TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()} ` +
+  `TIPO ${val(datos.submarca).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()} ` +
   `MODELO ${val(datos.anio)}, CON PLACAS DE CIRCULACIÓN ${val(datos.numero_placas).toUpperCase()}, ` +
   `NÚMERO DE SERIE ${val(datos.vin).toUpperCase()} ` +
   `CON DIRECCIÓN EN ${val(datos.calle).toUpperCase()}, ${val(datos.municipio).toUpperCase()}.`;
@@ -240,6 +240,7 @@ const seccionesIdx = [
   ['5', 'LUGAR DE INTERVENCIÓN', ''],
   ['6', 'CONSIDERACIONES', ''],
   ['7', 'CONCLUSIONES', ''],
+  ['8', 'ANÁLISIS DE VELOCIDAD (McHenry CRASH3)', ''],
 ];
 const filasIdx = seccionesIdx.map(([n, t, p]) =>
   new TableRow({ children: [
@@ -263,7 +264,7 @@ const seccion1 = [
   heading1('1', 'OBJETIVO TÉCNICO'),
   parrafo(
     `El presente ${tipoDoc.toLowerCase()} tiene como objetivo determinar si los daños que presenta el ` +
-    `vehículo: marca ${val(datos.marca)}, tipo ${val(datos.modelo)}, color ${val(datos.color)}, ` +
+    `vehículo: marca ${val(datos.marca)}, tipo ${val(datos.submarca)}, color ${val(datos.color)}, ` +
     `modelo ${val(datos.anio)}, placas de circulación ${val(datos.numero_placas)}, número de serie ` +
     `${val(datos.vin)}, se generan conforme a lo establecido en la narrativa del accidente, además de ` +
     `brindar comentarios objetivos y técnico-científicos que auxilien a quien corresponda para la toma ` +
@@ -288,7 +289,7 @@ const seccion2 = [
 const filasVehiculo = [
   ['DATOS', `VEHÍCULO ${val(datos.rol)}`],
   ['MARCA',        val(datos.marca)],
-  ['TIPO',         val(datos.modelo)],
+  ['TIPO',         val(datos.submarca)],
   ['MODELO',       val(datos.anio)],
   ['COLOR',        val(datos.color)],
   ['NO. DE SERIE', val(datos.vin)],
@@ -366,7 +367,7 @@ const seccion4 = [
   heading1('4', 'OBSERVACIÓN DE DAÑOS EN EL VEHÍCULO'),
   parrafo(
     `A continuación se presentan las fotografías del vehículo: MARCA ${val(datos.marca).toUpperCase()}, ` +
-    `TIPO ${val(datos.modelo).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()}, ` +
+    `TIPO ${val(datos.submarca).toUpperCase()}, COLOR ${val(datos.color).toUpperCase()}, ` +
     `MODELO ${val(datos.anio)}, PLACAS ${val(datos.numero_placas)}.`
   ),
   lineaVacia(),
@@ -441,6 +442,199 @@ const seccion7 = [
   ...(conclusionesParrafos.length > 0 ? conclusionesParrafos : [parrafo('Sin conclusiones registradas.')]),
   lineaVacia(),
 ];
+
+// ── Sección 8 – Análisis de velocidad (McHenry CRASH3) ───────────────────────
+const cMediciones = [];
+for (let i = 1; i <= 6; i++) {
+  const v = parseFloat(datos[`c${i}_m`]);
+  if (!isNaN(v) && v > 0) cMediciones.push({ label: `C${i}`, m: v });
+}
+const L_m      = parseFloat(datos.l_ancho_m)   || 0;
+const A_cof    = parseFloat(datos.a_rigidez)   || 0;
+const B_cof    = parseFloat(datos.b_rigidez)   || 0;
+const alphaDeg = parseFloat(datos.angulo_fpi)  || 0;
+const Vf_rep   = parseFloat(datos.velocidad_final) || 0;
+const Vmax_rep = parseFloat(datos.velocidad_maxima) || 0;
+const n_rep    = cMediciones.length;
+const hasCalcData = n_rep >= 2 && L_m > 0 && A_cof > 0 && B_cof > 0;
+
+const f2 = (v) => (isNaN(parseFloat(v)) ? '---' : parseFloat(v).toFixed(2));
+const f4 = (v) => (isNaN(parseFloat(v)) ? '---' : parseFloat(v).toFixed(4));
+const fN = (v, d=2) => (isNaN(parseFloat(v)) ? '---' : parseFloat(v).toLocaleString('en-US', { maximumFractionDigits: d }).replace(/,/g, ' '));
+
+const paso = (num, titulo, lineas) => [
+  new Paragraph({
+    spacing: { before: 200, after: 60 },
+    children: [new TextRun({ text: `Paso ${num}: ${titulo}`, bold: true, size: 20, color: BLUE, font: 'Arial' })],
+  }),
+  ...lineas.map(l => new Paragraph({
+    spacing: { before: 40, after: 40 },
+    indent: { left: 480 },
+    children: [new TextRun({ text: l, size: 18, font: 'Courier New', color: '111111' })],
+  })),
+];
+
+const seccion8 = [
+  heading1('8', 'ANÁLISIS DE VELOCIDAD'),
+  parrafo(
+    'Se presenta el análisis de velocidad mediante el Método McHenry CRASH3, técnica forense que ' +
+    'determina la velocidad de impacto a partir de la integración numérica de la energía de deformación ' +
+    'registrada en el vehículo bajo estudio.'
+  ),
+  lineaVacia(),
+  heading2('8.1', 'Datos de entrada'),
+];
+
+const colW8 = [2400, 2800, 4160];
+const filasEnt = [
+  ['PARÁMETRO', 'VALOR', 'DESCRIPCIÓN'],
+  ...cMediciones.map((c, i) => [
+    c.label,
+    `${(c.m * 1000).toFixed(1)} mm  (${c.m.toFixed(4)} m)`,
+    `Deformación medida en punto ${i + 1}`,
+  ]),
+  ['L — Ancho de contacto',     L_m  > 0 ? `${(L_m * 1000).toFixed(1)} mm  (${L_m.toFixed(4)} m)` : '---',           'Ancho de la zona de contacto'],
+  ['n — Mediciones',            `${n_rep} puntos`,                                                                       'Número de puntos de deformación'],
+  ['A — Rigidez lineal',        A_cof > 0 ? `${fN(A_cof,0)} N/m`  : '---',                                             'Coeficiente CRASH3 lineal del vehículo'],
+  ['B — Rigidez cuadrática',    B_cof > 0 ? `${fN(B_cof,0)} N/m²` : '---',                                             'Coeficiente CRASH3 no lineal del vehículo'],
+  ['α — Ángulo FPI',            `${alphaDeg}°`,                                                                          'Ángulo del vector fuerza-impulso'],
+  ['Vf — Vel. post-impacto',    `${f2(Vf_rep)} km/h`,                                                                   'Velocidad al detenerse tras el impacto'],
+  ['V_lim — Vel. máx. permit.', Vmax_rep > 0 ? `${Vmax_rep} km/h` : '---',                                             'Límite de velocidad en la vía'],
+];
+seccion8.push(new Table({
+  width: { size: 9360, type: WidthType.DXA },
+  columnWidths: colW8,
+  rows: filasEnt.map((row, ri) => new TableRow({
+    children: row.map((cell, ci) => celda(cell, {
+      width: colW8[ci],
+      fill:  ri === 0 ? BLUE : (ri % 2 === 0 ? GRAY_BG : WHITE),
+      color: ri === 0 ? WHITE : BLACK,
+      bold:  ri === 0,
+      size:  18,
+    })),
+  })),
+}));
+seccion8.push(lineaVacia());
+
+// 8.2 Trazabilidad
+seccion8.push(heading2('8.2', 'Trazabilidad del cálculo'));
+
+if (!hasCalcData) {
+  seccion8.push(parrafo('No hay suficientes datos de deformación para mostrar la trazabilidad completa.'));
+} else {
+  const C    = cMediciones.map(c => c.m);
+  const h    = L_m / (n_rep - 1);
+
+  let sumA = C[0] + C[n_rep - 1];
+  for (let i = 1; i < n_rep - 1; i++) sumA += 2 * C[i];
+
+  let sumB = C[0]*C[0] + C[n_rep-1]*C[n_rep-1];
+  for (let i = 1; i < n_rep - 1; i++) sumB += 2 * C[i]*C[i];
+  for (let i = 0; i < n_rep - 1; i++) sumB += C[i] * C[i+1];
+
+  const termA    = (A_cof / 2) * sumA;
+  const termB    = (B_cof / 6) * sumB;
+  const residual = L_m * A_cof * A_cof / (2 * B_cof);
+  const Ed_calc  = h * (termA + termB) + residual;
+  const tanAlpha = Math.tan(alphaDeg * Math.PI / 180);
+  const Ecorr_calc = Ed_calc * Math.pow(1 + tanAlpha, 2);
+  const Dmed_rep   = C.reduce((a, v) => a + v, 0) / n_rep;
+
+  const sumA_str = cMediciones.map((c, i) =>
+    (i === 0 || i === n_rep - 1) ? c.m.toFixed(4) : `2×${c.m.toFixed(4)}`
+  ).join(' + ');
+  const sq_str = cMediciones.map((c, i) => {
+    const sq = (c.m * c.m).toFixed(6);
+    return (i === 0 || i === n_rep - 1) ? sq : `2×${sq}`;
+  }).join(' + ');
+  const cr_str = cMediciones.slice(0,-1).map((c,i) =>
+    `${c.m.toFixed(4)}×${cMediciones[i+1].m.toFixed(4)}`
+  ).join(' + ');
+
+  seccion8.push(...paso(1, 'Espaciado entre puntos de medición', [
+    `h = L / (n − 1) = ${L_m.toFixed(4)} / ${n_rep - 1} = ${h.toFixed(4)} m`,
+  ]));
+  seccion8.push(...paso(2, 'Suma ponderada (sumA = C1 + 2·C2 + … + 2·C(n-1) + Cn)', [
+    `sumA = ${sumA_str}`,
+    `sumA = ${sumA.toFixed(4)} m`,
+  ]));
+  seccion8.push(...paso(3, 'Suma cuadrados + productos cruzados (sumB)', [
+    `sumB = [C1² + 2C2² + … + Cn²]  +  [C1·C2 + C2·C3 + … + C(n-1)·Cn]`,
+    `  Cuadrados: ${sq_str}`,
+    `  Cruzados:  ${cr_str}`,
+    `sumB = ${sumB.toFixed(4)} m²`,
+  ]));
+  seccion8.push(...paso(4, 'Energía de deformación — McHenry CRASH3', [
+    `Ed = h × [(A/2)·sumA  +  (B/6)·sumB]  +  L·A²/(2B)`,
+    `   = ${h.toFixed(4)} × [(${fN(A_cof,0)}/2)×${sumA.toFixed(4)} + (${fN(B_cof,0)}/6)×${sumB.toFixed(4)}] + ${residual.toFixed(2)}`,
+    `   = ${h.toFixed(4)} × [${termA.toFixed(2)} + ${termB.toFixed(2)}] + ${residual.toFixed(2)}`,
+    `Ed = ${Ed_calc.toFixed(2)} J`,
+  ]));
+  seccion8.push(...paso(5, 'Corrección por ángulo FPI', [
+    `α = ${alphaDeg}°   →   tan(α) = ${tanAlpha.toFixed(4)}`,
+    `E_corr = Ed × (1 + tan α)² = ${Ed_calc.toFixed(2)} × ${(Math.pow(1+tanAlpha,2)).toFixed(4)}`,
+    `E_corr = ${Ecorr_calc.toFixed(2)} J`,
+  ]));
+
+  const EBS_st = parseFloat(datos.ebs_ms);
+  const dV_st  = parseFloat(datos.dv_kmh);
+  const Vp_st  = parseFloat(datos.velocidad_pre_impacto);
+
+  if (!isNaN(EBS_st)) {
+    seccion8.push(...paso(6, 'Velocidad equivalente de barrera (EBS) y ΔV', [
+      `EBS = √(2 × E_corr / m) = ${EBS_st.toFixed(4)} m/s`,
+      `ΔV  = EBS × 3.6 = ${(!isNaN(dV_st) ? dV_st.toFixed(2) : (EBS_st*3.6).toFixed(2))} km/h`,
+    ]));
+  }
+  if (!isNaN(Vp_st)) {
+    const dV_val = !isNaN(dV_st) ? dV_st : (EBS_st * 3.6);
+    seccion8.push(...paso(7, 'Velocidad pre-impacto (Vp)', [
+      `Vp = √(ΔV² + Vf²) = √(${f2(dV_val)}² + ${f2(Vf_rep)}²)`,
+      `Vp = ${f2(Vp_st)} km/h`,
+    ]));
+  }
+
+  const limStep = [
+    `Dmed = ${Dmed_rep.toFixed(4)} m  (${(Dmed_rep * 100).toFixed(2)} cm)`,
+  ];
+  if (Dmed_rep > 0.6) {
+    limStep.push(`Dmed > 0.60 m  →  Método Limpert NO APLICABLE en impactos severos`);
+  } else {
+    const VL = 4.4 * (Dmed_rep * 100) + 0.32;
+    limStep.push(`VL = 4.4 × ${(Dmed_rep*100).toFixed(2)} cm + 0.32 = ${VL.toFixed(2)} km/h`);
+  }
+  seccion8.push(...paso(8, 'Verificación Limpert (complementaria, válida solo si Dmed ≤ 60 cm)', limStep));
+}
+
+seccion8.push(lineaVacia());
+seccion8.push(heading2('8.3', 'Diagnóstico de velocidad'));
+
+const Vp_diag  = parseFloat(datos.velocidad_pre_impacto);
+const exc_diag = (!isNaN(Vp_diag) && Vmax_rep > 0) ? +(Vp_diag - Vmax_rep).toFixed(2) : null;
+const hayExc   = exc_diag !== null && exc_diag > 0;
+
+const filasDiag = [
+  ['CONCEPTO', 'RESULTADO'],
+  ['Velocidad pre-impacto  (Vp)',    !isNaN(Vp_diag) ? `${f2(Vp_diag)} km/h` : '---'],
+  ['Límite de velocidad permitido',  Vmax_rep > 0 ? `${Vmax_rep} km/h` : '---'],
+  ['Δv exceso  =  Vp − V_límite',   exc_diag !== null ? (hayExc ? `+${exc_diag} km/h` : `${exc_diag} km/h`) : '---'],
+  ['Diagnóstico final',              exc_diag !== null ? (hayExc ? 'EXCESO DE VELOCIDAD CONFIRMADO' : 'Sin exceso de velocidad') : 'Sin datos suficientes'],
+];
+seccion8.push(new Table({
+  width: { size: 9360, type: WidthType.DXA },
+  columnWidths: [5400, 3960],
+  rows: filasDiag.map((row, ri) => {
+    const isLast = ri === filasDiag.length - 1;
+    return new TableRow({ children: row.map((cell, ci) => celda(cell, {
+      width: ci === 0 ? 5400 : 3960,
+      fill:  ri === 0 ? BLUE : (isLast && hayExc ? 'FFD0D0' : (ri % 2 === 0 ? GRAY_BG : WHITE)),
+      color: ri === 0 ? WHITE : (isLast && hayExc && ci === 1 ? 'CC0000' : BLACK),
+      bold:  ri === 0 || isLast,
+      size:  isLast ? 22 : 18,
+    }))});
+  }),
+}));
+seccion8.push(lineaVacia());
 
 // ── Bloque de firmas ──────────────────────────────────────────────────────────
 const firma = [
@@ -535,6 +729,7 @@ const doc = new Document({
         ...seccion5,
         ...seccion6,
         ...seccion7,
+        ...seccion8,
         ...firma,
       ],
     },
