@@ -47,6 +47,7 @@ class IncidenteController extends Controller
             ->leftJoin('RAT_INCIDENTE_VEHICULO AS iv', 'iv.incidente_id', '=', 'i.id')
             ->leftJoin('RAT_VEHICULO AS v', 'iv.vehiculo_id', '=', 'v.id')
             ->leftJoin('RAT_CALCULO_VELOCIDAD AS cv', 'cv.incidente_vehiculo_id', '=', 'iv.id')
+            ->leftJoin('RAT_UBICACION_VIA AS uv', 'uv.incidente_id', '=', 'i.id')
             ->leftJoin('sys_users AS u', 'u.id_user', '=', 'i.id_usuario_perito')
             ->select(
                 'i.uuid',
@@ -59,8 +60,10 @@ class IncidenteController extends Controller
                 DB::raw("CONCAT(v.marca, ' ', COALESCE(v.submarca,''), ' ', v.anio_modelo) AS vehiculo"),
                 DB::raw("CONCAT(u.name) AS perito"),
                 'cv.velocidad_final_kmh',
-                'cv.exceso_velocidad',
-                'cv.delta_exceso_kmh'
+                'cv.velocidad_pre_impacto_kmh',
+                'uv.velocidad_maxima_permitida_kmh',
+                DB::raw('CASE WHEN cv.velocidad_pre_impacto_kmh IS NOT NULL AND uv.velocidad_maxima_permitida_kmh IS NOT NULL AND cv.velocidad_pre_impacto_kmh > uv.velocidad_maxima_permitida_kmh THEN 1 ELSE 0 END AS exceso_velocidad'),
+                DB::raw('CASE WHEN cv.velocidad_pre_impacto_kmh IS NOT NULL AND uv.velocidad_maxima_permitida_kmh IS NOT NULL AND cv.velocidad_pre_impacto_kmh > uv.velocidad_maxima_permitida_kmh THEN ROUND(cv.velocidad_pre_impacto_kmh - uv.velocidad_maxima_permitida_kmh, 2) ELSE NULL END AS delta_exceso_kmh')
             );
 
         // Usuarios normales solo ven sus propios expedientes

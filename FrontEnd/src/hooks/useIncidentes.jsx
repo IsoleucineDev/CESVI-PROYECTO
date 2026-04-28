@@ -11,8 +11,8 @@ export function useIncidentes() {
     setLoading(true);
     setError("");
     try {
-      const data = await getIncidentes();
-      const payload = data?.data?.data || data?.data || data || [];
+      const data = await getIncidentes({ per_page: 1000 });
+      const payload = data?.data ?? data ?? [];
       setRows(Array.isArray(payload) ? payload : []);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || "No se pudieron cargar los expedientes");

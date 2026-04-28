@@ -127,7 +127,7 @@ export default function Expedientes() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                {["#","No. Siniestro","Fecha","Hora","Tipo de Hecho","Vehículo","Perito","Estado","Vel. Calculada","Exceso","Acciones"].map((h) => (
+                {["#","No. Siniestro","Fecha","Hora","Tipo de Hecho","Vehículo","Perito","Estado","Vel. Pre-impacto","Exceso","Acciones"].map((h) => (
                   <th key={h} className="text-left text-xs text-gray-500 px-3 py-2 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -156,7 +156,11 @@ export default function Expedientes() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700">
-                        {exp.velocidad_final_kmh ? `${exp.velocidad_final_kmh} km/h` : "—"}
+                        {exp.velocidad_pre_impacto_kmh
+                          ? `${exp.velocidad_pre_impacto_kmh} km/h`
+                          : exp.velocidad_final_kmh
+                            ? `${exp.velocidad_final_kmh} km/h`
+                            : "—"}
                       </td>
                       <td className="px-3 py-2">
                         {exp.exceso_velocidad
